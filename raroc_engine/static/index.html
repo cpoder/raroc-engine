@@ -384,25 +384,51 @@ function activateKey() {
 }
 
 function checkProStatus() {
-  // Check URL for key (from Stripe redirect)
   const params = new URLSearchParams(window.location.search);
   const urlKey = params.get('key');
   if (urlKey) {
     localStorage.setItem('raroc_api_key', urlKey);
     isPro = true;
     window.history.replaceState({}, '', '/');
-    // Show success message
-    setTimeout(() => {
-      alert('Pro activated! Your API key: ' + urlKey + '\n\nSave this key -- you can use it in the CLI or MCP server too.\n\nIt has been saved in your browser automatically.');
-    }, 500);
+    setTimeout(() => showKeyDialog(urlKey), 500);
   }
-  // Check localStorage
   const savedKey = localStorage.getItem('raroc_api_key');
-  if (savedKey) {
-    isPro = true;
-  }
+  if (savedKey) isPro = true;
   updateProUI();
   renderBankCheckboxes();
+}
+
+function showKeyDialog(key) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:2000;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border:2px solid var(--green);border-radius:16px;padding:32px;max-width:520px;width:90%;text-align:center;">
+      <div style="font-size:48px;margin-bottom:12px;">&#127881;</div>
+      <h2 style="color:var(--green);font-size:22px;margin-bottom:8px;">Pro Activated!</h2>
+      <p style="color:var(--text2);font-size:14px;margin-bottom:20px;">All 35 banks are now unlocked. Here's your API key for CLI and MCP server use:</p>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input type="text" value="${key}" readonly id="key-display" style="flex:1;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--accent);font-family:monospace;font-size:14px;text-align:center;">
+        <button onclick="copyKey()" style="padding:12px 20px;background:var(--accent2);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;" id="copy-btn">Copy</button>
+      </div>
+      <p style="color:var(--text3);font-size:12px;margin-bottom:20px;">
+        Use in CLI: <code style="background:var(--bg);padding:2px 6px;border-radius:4px;">export RAROC_API_KEY=${key}</code><br>
+        Or save in: <code style="background:var(--bg);padding:2px 6px;border-radius:4px;">~/.raroc/config.json</code>
+      </p>
+      <button onclick="this.closest('div').parentElement.remove()" style="padding:10px 32px;background:var(--green);color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;">Start using OpenRAROC Pro</button>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function copyKey() {
+  const input = document.getElementById('key-display');
+  input.select();
+  navigator.clipboard.writeText(input.value).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    btn.style.background = 'var(--green)';
+    btn.style.color = '#000';
+    setTimeout(() => { btn.textContent = 'Copy'; btn.style.background = 'var(--accent2)'; btn.style.color = '#fff'; }, 2000);
+  });
 }
 
 function updateProUI() {

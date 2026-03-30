@@ -138,6 +138,10 @@ header .sub { color: #94a3b8; font-size: 13px; }
         <div style="color:var(--text3);font-size:11px;">All from actual Pillar 3 filings</div>
       </div>
     </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Your email</label>
+      <input type="email" id="checkout-email" placeholder="cfo@company.com">
+    </div>
     <button class="btn btn-primary" style="width:100%;margin-bottom:12px;" onclick="startCheckout()">Subscribe with Stripe</button>
     <div style="text-align:center;color:var(--text3);font-size:12px;margin-bottom:12px;">or</div>
     <div class="form-group" style="margin-bottom:8px;">
@@ -349,8 +353,11 @@ function showProModal() { document.getElementById('pro-modal').style.display='fl
 function hideProModal() { document.getElementById('pro-modal').style.display='none'; }
 
 function startCheckout() {
-  const email = prompt('Your email address (for receipt):');
-  if (!email) return;
+  const email = document.getElementById('checkout-email').value.trim();
+  if (!email || !email.includes('@')) {
+    document.getElementById('checkout-email').style.borderColor = 'var(--red)';
+    return;
+  }
   window.location.href = API_BASE + '/v1/checkout?email=' + encodeURIComponent(email);
 }
 

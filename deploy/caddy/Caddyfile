@@ -1,0 +1,10 @@
+# Caddy reverse proxy for OpenRAROC
+# Auto-HTTPS with Let's Encrypt
+
+openraroc.com {
+    reverse_proxy localhost:8000
+}
+
+api.openraroc.com {
+    reverse_proxy localhost:8001
+}

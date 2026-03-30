@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  # Main RAROC web app (openraroc.com)
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: raroc-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ../premium_banks.json:/app/premium_banks.json:ro
+    environment:
+      - RAROC_PREMIUM_BANKS=/app/premium_banks.json
+
+  # Premium data API (api.openraroc.com)
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    container_name: raroc-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8001:8001"
+    volumes:
+      - ../premium_banks.json:/app/premium_banks.json:ro
+      - api_keys:/app/api
+    environment:
+      - RAROC_ADMIN_KEY=${RAROC_ADMIN_KEY:-change-me-in-production}
+
+volumes:
+  api_keys:

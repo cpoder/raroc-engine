@@ -1,0 +1,8 @@
+facility_name,product_type,bank,rating,average_drawn,average_volume,spread_bp,commitment_fee_bp,flat_fee,upfront_fee,maturity_months,confirmed,grr_pct,collateral_stress_value
+"5Y Term Loan - Tranche A",mlt_credit,BNP Paribas,BBB+,35000000,50000000,150,20,0,50000,60,yes,55,0
+"5Y Term Loan - Tranche B",mlt_credit,Societe Generale,BBB+,15000000,20000000,175,25,0,0,60,yes,40,0
+"Revolving Credit Facility",short_term_credit,HSBC,BBB+,8000000,20000000,80,15,0,0,12,yes,0,0
+"Performance Bond",caution,Barclays,BBB+,5000000,5000000,50,0,25000,0,36,no,65,0
+"StandBy Letter of Credit",financial_guarantee,Deutsche Bank,BBB+,10000000,10000000,30,0,15000,0,24,no,50,0
+"Interest Rate Swap 5Y",ir_swap,JP Morgan,BBB+,1500000,80000000,0,0,20000,0,60,no,0,0
+"FX Forward 6M",forward,BNP Paribas,BBB+,500000,25000000,0,0,8000,0,6,no,0,0

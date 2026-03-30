@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAROC Engine</title>
+<style>
+:root {
+  --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
+  --border: #475569; --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+  --accent: #38bdf8; --accent2: #0ea5e9;
+  --green: #22c55e; --yellow: #eab308; --red: #ef4444; --orange: #f97316;
+  --radius: 12px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+.container { max-width: 1280px; margin: 0 auto; padding: 20px; }
+
+header { background: linear-gradient(135deg, #0c4a6e 0%, #164e63 100%); padding: 20px 28px; border-radius: var(--radius); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+header h1 { font-size: 22px; font-weight: 700; color: #fff; }
+header h1 span { color: var(--accent); }
+header .sub { color: #94a3b8; font-size: 13px; }
+.regime-toggle { display: flex; gap: 4px; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 3px; }
+.regime-toggle button { padding: 5px 14px; border: none; border-radius: 6px; background: transparent; color: var(--text2); cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; }
+.regime-toggle button.active { background: var(--accent2); color: #fff; }
+
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--surface); border-radius: 10px; padding: 4px; }
+.tabs button { flex: 1; padding: 9px; border: none; border-radius: 8px; background: transparent; color: var(--text2); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+.tabs button.active { background: var(--accent2); color: #fff; }
+.tabs button:hover:not(.active) { color: var(--text); background: var(--surface2); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.card { background: var(--surface); border-radius: var(--radius); padding: 20px; border: 1px solid var(--border); margin-bottom: 16px; }
+.card h2 { font-size: 15px; color: var(--accent); margin-bottom: 14px; font-weight: 600; }
+.card h3 { font-size: 13px; color: var(--text2); margin-bottom: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-size: 11px; color: var(--text2); margin-bottom: 3px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
+.form-group input, .form-group select { width: 100%; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-size: 13px; outline: none; }
+.form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+.form-row { display: flex; gap: 10px; }
+.form-row .form-group { flex: 1; }
+.input-suffix { position: relative; }
+.input-suffix input { padding-right: 36px; }
+.input-suffix .suffix { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 11px; pointer-events: none; margin-top: 9px; }
+
+.btn { padding: 9px 20px; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn-primary { background: var(--accent2); color: #fff; }
+.btn-primary:hover { background: var(--accent); }
+.btn-sm { padding: 6px 14px; font-size: 12px; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+.btn-outline:hover { border-color: var(--accent); color: var(--text); }
+
+/* Summary cards row */
+.summary-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.summary-card { background: var(--bg); border: 1px solid var(--surface2); border-radius: 10px; padding: 16px; text-align: center; }
+.summary-card .val { font-size: 28px; font-weight: 800; line-height: 1.1; }
+.summary-card .lbl { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+/* Portfolio table */
+.ptable { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ptable th { text-align: left; padding: 8px 6px; color: var(--text2); font-weight: 500; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 2px solid var(--border); }
+.ptable td { padding: 8px 6px; border-bottom: 1px solid var(--surface2); font-variant-numeric: tabular-nums; }
+.ptable tr:hover { background: var(--surface2); }
+.ptable .num { text-align: right; }
+.ptable .total-row { font-weight: 700; border-top: 2px solid var(--border); }
+.ptable .total-row td { padding-top: 12px; }
+
+/* Upload area */
+.upload-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.3s; }
+.upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: rgba(56,189,248,0.05); }
+.upload-zone .icon { font-size: 36px; margin-bottom: 8px; }
+.upload-zone p { color: var(--text2); font-size: 13px; }
+.upload-zone .hint { color: var(--text3); font-size: 11px; margin-top: 6px; }
+.upload-zone input[type="file"] { display: none; }
+
+/* Chart bars */
+.chart-bars { display: flex; flex-direction: column; gap: 5px; }
+.chart-row { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.chart-label { width: 140px; text-align: right; color: var(--text2); flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart-bar-bg { flex: 1; height: 22px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.chart-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; min-width: 2px; }
+.chart-val { width: 60px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+/* Confidence dot */
+.conf { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+.conf-high { background: var(--green); }
+.conf-medium { background: var(--yellow); }
+.conf-low { background: var(--text3); }
+
+/* Inline add form */
+.add-form { display: none; background: var(--bg); border: 1px solid var(--accent); border-radius: var(--radius); padding: 16px; margin-top: 12px; }
+.add-form.show { display: block; }
+
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+@media (max-width: 900px) { .settings-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .settings-grid, .form-row { grid-template-columns: 1fr; flex-direction: column; } }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fadeIn 0.3s ease; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div>
+    <h1><span>RAROC</span> Engine</h1>
+    <div class="sub">See your credit through your banker's eyes</div>
+  </div>
+  <div class="regime-toggle">
+    <button id="btn-basel3" class="active" onclick="setRegime('basel3')">Basel III</button>
+    <button id="btn-basel2" onclick="setRegime('basel2')">Basel II</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="active" onclick="showTab('portfolio')">Portfolio</button>
+  <button onclick="showTab('compare')">Bank Comparison</button>
+  <button onclick="showTab('solver')">Reverse Solver</button>
+  <button onclick="showTab('sensitivity')">Sensitivity</button>
+  <button onclick="showTab('settings')">Settings</button>
+</div>
+
+<!-- ═══ PORTFOLIO TAB ═══ -->
+<div id="tab-portfolio" class="tab-content active">
+
+  <!-- Empty state: upload -->
+  <div id="portfolio-empty">
+    <div class="card">
+      <h2>Your Credit Portfolio</h2>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">Upload a CSV with your banking facilities, or add them manually below.</p>
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()"
+           ondragover="event.preventDefault();this.classList.add('dragover')"
+           ondragleave="this.classList.remove('dragover')"
+           ondrop="event.preventDefault();this.classList.remove('dragover');handleFileDrop(event)">
+        <div class="icon">&#128196;</div>
+        <p>Drop your CSV file here or click to browse</p>
+        <div class="hint">Columns: facility_name, product_type, bank, rating, average_drawn, average_volume, spread_bp, commitment_fee_bp, maturity_months, confirmed, grr_pct</div>
+        <input type="file" id="file-input" accept=".csv" onchange="handleFileUpload(this.files[0])">
+      </div>
+      <div style="margin-top:12px;display:flex;gap:10px;justify-content:center;">
+        <a href="/api/template" download class="btn btn-sm btn-outline" style="text-decoration:none;">Download template</a>
+        <button class="btn btn-sm btn-primary" onclick="showAddForm()">+ Add facility manually</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Portfolio results -->
+  <div id="portfolio-loaded" style="display:none">
+    <div class="summary-row" id="portfolio-summary"></div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 style="margin:0;">Facilities</h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-sm btn-outline" onclick="showAddForm()">+ Add facility</button>
+          <button class="btn btn-sm btn-outline" onclick="resetPortfolio()">Upload new file</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="ptable" id="portfolio-table">
+          <thead>
+            <tr>
+              <th>Facility</th>
+              <th>Product</th>
+              <th>Bank</th>
+              <th>Rating</th>
+              <th class="num">Drawn</th>
+              <th class="num">Spread</th>
+              <th class="num">GRR</th>
+              <th class="num">EAD</th>
+              <th class="num">RW</th>
+              <th class="num">FPE</th>
+              <th class="num">Revenue</th>
+              <th class="num">RAROC</th>
+            </tr>
+          </thead>
+          <tbody id="portfolio-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inline add form -->
+  <div class="add-form" id="add-form">
+    <h3>Add a Facility</h3>
+    <div class="form-row">
+      <div class="form-group"><label>Name</label><input type="text" id="af_name" value="New Facility" placeholder="5Y Term Loan"></div>
+      <div class="form-group"><label>Product</label><select id="af_product"></select></div>
+      <div class="form-group"><label>Bank</label><input type="text" id="af_bank" placeholder="BNP Paribas"></div>
+      <div class="form-group"><label>Rating</label><select id="af_rating"></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group input-suffix"><label>Avg Drawn</label><input type="number" id="af_drawn" value="25000000"><span class="suffix">EUR</span></div>
+      <div class="form-group input-suffix"><label>Avg Volume</label><input type="number" id="af_volume" value="30000000"><span class="suffix">EUR</span></div>
+      <div class="form-group input-suffix"><label>Spread</label><input type="number" id="af_spread" value="150"><span class="suffix">bp</span></div>
+      <div class="form-group input-suffix"><label>Commit Fee</label><input type="number" id="af_commit" value="20"><span class="suffix">bp</span></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group input-suffix"><label>Maturity</label><input type="number" id="af_maturity" value="60"><span class="suffix">months</span></div>
+      <div class="form-group input-suffix"><label>GRR</label><input type="number" id="af_grr" value="0"><span class="suffix">%</span></div>
+      <div class="form-group input-suffix"><label>Flat Fee</label><input type="number" id="af_flat" value="0"><span class="suffix">EUR</span></div>
+      <div class="form-group">
+        <label>Confirmed</label>
+        <select id="af_confirmed"><option value="true">Yes</option><option value="false">No</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button class="btn btn-sm btn-primary" onclick="addFacility()">Add to portfolio</button>
+      <button class="btn btn-sm btn-outline" onclick="hideAddForm()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BANK COMPARISON TAB ═══ -->
+<div id="tab-compare" class="tab-content">
+  <div class="card">
+    <h2>Compare Your Portfolio Across Banks</h2>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:14px;" id="compare-status">Upload a portfolio first to enable comparison.</p>
+    <div id="bank-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;"></div>
+    <button class="btn btn-primary" style="width:auto;" onclick="runPortfolioComparison()" id="btn-compare" disabled>Compare Banks</button>
+  </div>
+  <div id="compare-results" style="display:none;">
+    <div class="card">
+      <h2>Portfolio RAROC by Bank</h2>
+      <div id="compare-chart" class="chart-bars" style="margin-bottom:16px;"></div>
+      <div style="overflow-x:auto;">
+        <table class="ptable" id="compare-table">
+          <thead><tr>
+            <th></th><th>Bank</th><th>Country</th>
+            <th class="num">C/I</th><th class="num">Tax</th>
+            <th class="num">Exposure</th><th class="num">FPE</th>
+            <th class="num">Revenue</th><th class="num">Exp. Loss</th>
+            <th class="num">RAROC</th>
+          </tr></thead>
+          <tbody id="compare-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SOLVER TAB ═══ -->
+<div id="tab-solver" class="tab-content">
+  <div class="card">
+    <h2>What's the minimum my bank will accept?</h2>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:14px;">Select a facility from your portfolio and find the minimum spread or collateral needed.</p>
+    <div class="form-row">
+      <div class="form-group"><label>Facility</label><select id="solve_facility" onchange="updateSolverPreview()"></select></div>
+      <div class="form-group"><label>Solve for</label><select id="solve_for"><option value="spread">Minimum Spread</option><option value="grr">Minimum Collateral (GRR)</option></select></div>
+      <div class="form-group input-suffix"><label>Bank's Target RAROC</label><input type="number" id="solve_target" value="12"><span class="suffix">%</span></div>
+    </div>
+    <button class="btn btn-primary" style="width:auto;margin-top:4px;" onclick="runSolver()">Solve</button>
+  </div>
+  <div id="solve-result-area"></div>
+</div>
+
+<!-- ═══ SENSITIVITY TAB ═══ -->
+<div id="tab-sensitivity" class="tab-content">
+  <div class="card">
+    <h2>What-If Analysis</h2>
+    <div class="form-row">
+      <div class="form-group"><label>Facility</label><select id="sens_facility"></select></div>
+      <div class="form-group"><label>Parameter</label>
+        <select id="sens_param">
+          <option value="grr">GRR (Collateral)</option>
+          <option value="rating">Rating</option>
+          <option value="spread_delta">Spread (+/- bp)</option>
+          <option value="maturity">Maturity</option>
+        </select>
+      </div>
+      <div class="form-group" style="align-self:end;"><button class="btn btn-sm btn-primary" onclick="runSensitivity()">Analyze</button></div>
+    </div>
+  </div>
+  <div class="card" id="sens-result" style="display:none;">
+    <h3 id="sens-title"></h3>
+    <div id="sens-chart" class="chart-bars"></div>
+  </div>
+</div>
+
+<!-- ═══ SETTINGS TAB ═══ -->
+<div id="tab-settings" class="tab-content">
+  <div class="card">
+    <h2>Engine Configuration</h2>
+    <p style="color:var(--text2);font-size:12px;margin-bottom:16px;">Changes apply to all calculations immediately.</p>
+    <div class="settings-grid">
+      <div class="form-group input-suffix"><label>Risk-Free Rate</label><input type="number" id="cfg_rfr" value="3.25" step="0.25" onchange="saveConfig()"><span class="suffix">%</span></div>
+      <div class="form-group input-suffix"><label>Bank Tax Rate</label><input type="number" id="cfg_tax" value="25" step="1" onchange="saveConfig()"><span class="suffix">%</span></div>
+      <div class="form-group input-suffix"><label>Funding Cost</label><input type="number" id="cfg_funding" value="0" step="5" onchange="saveConfig()"><span class="suffix">bp</span></div>
+      <div class="form-group input-suffix"><label>Target RAROC</label><input type="number" id="cfg_target" value="12" step="1" onchange="saveConfig()"><span class="suffix">%</span></div>
+      <div class="form-group input-suffix"><label>Output Floor (CRR3)</label><input type="number" id="cfg_floor" value="55" step="5" onchange="saveConfig()"><span class="suffix">%</span></div>
+      <div class="form-group input-suffix"><label>PD Floor</label><input type="number" id="cfg_pd_floor" value="5" step="1" onchange="saveConfig()"><span class="suffix">bp</span></div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────
+let ratings=[], products=[], bankProfiles=[], portfolio=[], portfolioOutputs=[], regime='basel3';
+
+async function api(path, body) {
+  const opts = body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : {};
+  const r = await fetch('/api/'+path, opts);
+  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.detail||'Error'); }
+  return r.json();
+}
+const fmt = v => Math.abs(v) >= 1 ? v.toLocaleString('en',{maximumFractionDigits:0}) : v.toFixed(2);
+const rc = v => v>=0.12?'var(--green)':v>=0.05?'var(--yellow)':v>=0?'var(--orange)':'var(--red)';
+
+// ── Init ───────────────────────────────────────────────
+async function init() {
+  const [rData,pData,cfg,bData] = await Promise.all([api('ratings'),api('products'),api('config'),api('banks')]);
+  ratings = rData.ratings;
+  products = pData.products;
+  bankProfiles = bData.banks;
+
+  // Populate product dropdowns
+  for (const sel of [document.getElementById('af_product')]) {
+    products.forEach(p => { const o=document.createElement('option'); o.value=p.key; o.textContent=p.description; if(p.key==='mlt_credit')o.selected=true; sel.appendChild(o); });
+  }
+  // Rating dropdowns
+  for (const sel of [document.getElementById('af_rating')]) {
+    ratings.forEach(r => { const o=document.createElement('option'); o.value=r.sp||r.moodys; o.textContent=`${r.sp||''} / ${r.moodys}`; if(r.moodys==='Baa1')o.selected=true; sel.appendChild(o); });
+  }
+  // Bank checkboxes
+  const confColor = {high:'var(--green)',medium:'var(--yellow)',low:'var(--text3)'};
+  const confClass = {high:'conf-high',medium:'conf-medium',low:'conf-low'};
+  document.getElementById('bank-checkboxes').innerHTML = bankProfiles.map(b =>
+    `<label style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;">
+      <input type="checkbox" value="${b.key}" ${b.confidence==='high'?'checked':''} style="accent-color:var(--accent);width:14px;height:14px;">
+      <span class="conf ${confClass[b.confidence]||'conf-low'}"></span>
+      <strong>${b.name}</strong> <span style="color:var(--text3)">${b.country}</span>
+    </label>`
+  ).join('');
+
+  // Load config
+  document.getElementById('cfg_rfr').value = (cfg.risk_free_rate*100).toFixed(2);
+  document.getElementById('cfg_tax').value = (cfg.bank_tax_rate*100).toFixed(0);
+  document.getElementById('cfg_funding').value = (cfg.funding_cost_bp*10000).toFixed(0);
+  document.getElementById('cfg_target').value = (cfg.target_raroc*100).toFixed(0);
+  document.getElementById('cfg_floor').value = (cfg.output_floor_pct*100).toFixed(0);
+  document.getElementById('cfg_pd_floor').value = (cfg.pd_floor*10000).toFixed(0);
+  document.getElementById('solve_target').value = (cfg.target_raroc*100).toFixed(0);
+}
+
+// ── Portfolio management ───────────────────────────────
+function handleFileDrop(e) { handleFileUpload(e.dataTransfer.files[0]); }
+
+async function handleFileUpload(file) {
+  if (!file) return;
+  const form = new FormData(); form.append('file', file);
+  const r = await fetch('/api/portfolio', {method:'POST',body:form});
+  if (!r.ok) { alert('Error processing file'); return; }
+  const data = await r.json();
+  portfolio = [];
+  portfolioOutputs = [];
+  data.facilities.forEach(f => {
+    if (f.error) return;
+    portfolio.push(f.input);
+    portfolioOutputs.push({name: f.name, input: f.input, output: f.output});
+  });
+  renderPortfolio();
+}
+
+function buildDealFromInput(inp) {
+  return {
+    product_type: inp.product_type, operation: inp.operation||'', bank: inp.bank||'',
+    average_drawn: inp.average_drawn, average_volume: inp.average_volume,
+    spread: inp.spread, commitment_fee: inp.commitment_fee,
+    flat_fee: inp.flat_fee||0, upfront_fee: inp.upfront_fee||0,
+    participation_fee: inp.participation_fee||0, user_cost: inp.user_cost,
+    rating: inp.rating, residual_maturity: inp.residual_maturity,
+    confirmed: inp.confirmed, global_grr: inp.global_grr,
+    collateral_stress_value: inp.collateral_stress_value||0,
+  };
+}
+
+async function addFacility() {
+  const deal = {
+    product_type: document.getElementById('af_product').value,
+    operation: document.getElementById('af_name').value,
+    bank: document.getElementById('af_bank').value,
+    average_drawn: parseFloat(document.getElementById('af_drawn').value)||0,
+    average_volume: parseFloat(document.getElementById('af_volume').value)||0,
+    spread: (parseFloat(document.getElementById('af_spread').value)||0)/10000,
+    commitment_fee: (parseFloat(document.getElementById('af_commit').value)||0)/10000,
+    flat_fee: parseFloat(document.getElementById('af_flat').value)||0,
+    rating: document.getElementById('af_rating').value.split(' / ')[0].trim(),
+    residual_maturity: parseFloat(document.getElementById('af_maturity').value)||60,
+    confirmed: document.getElementById('af_confirmed').value==='true',
+    global_grr: (parseFloat(document.getElementById('af_grr').value)||0)/100,
+  };
+  const data = await api('calculate', deal);
+  portfolio.push(data.input);
+  portfolioOutputs.push({name: deal.operation||'Facility', input: data.input, output: data.output});
+  hideAddForm();
+  renderPortfolio();
+}
+
+function removeFacility(idx) {
+  portfolio.splice(idx, 1);
+  portfolioOutputs.splice(idx, 1);
+  renderPortfolio();
+}
+
+function renderPortfolio() {
+  if (portfolioOutputs.length === 0) {
+    document.getElementById('portfolio-empty').style.display = 'block';
+    document.getElementById('portfolio-loaded').style.display = 'none';
+    document.getElementById('compare-status').textContent = 'Upload a portfolio first to enable comparison.';
+    document.getElementById('btn-compare').disabled = true;
+    updateFacilitySelectors();
+    return;
+  }
+  document.getElementById('portfolio-empty').style.display = 'none';
+  document.getElementById('portfolio-loaded').style.display = 'block';
+  document.getElementById('compare-status').textContent = `${portfolioOutputs.length} facilities loaded. Select banks and compare.`;
+  document.getElementById('btn-compare').disabled = false;
+
+  const totals = {exposure:0, fpe:0, revenue:0, cost:0, el:0};
+  portfolioOutputs.forEach(f => { const o=f.output; totals.exposure+=o.exposure; totals.fpe+=o.fpe; totals.revenue+=o.revenue; totals.cost+=o.cost; totals.el+=o.average_loss; });
+  const rfr = parseFloat(document.getElementById('cfg_rfr').value)/100;
+  const tax = parseFloat(document.getElementById('cfg_tax').value)/100;
+  const pRaroc = totals.fpe>0 ? (1-tax)*((totals.revenue-totals.cost-totals.el)/totals.fpe+rfr) : 0;
+
+  document.getElementById('portfolio-summary').innerHTML = `
+    <div class="summary-card"><div class="val" style="color:${rc(pRaroc)}">${(pRaroc*100).toFixed(2)}%</div><div class="lbl">Portfolio RAROC</div></div>
+    <div class="summary-card"><div class="val">${fmt(totals.fpe)}</div><div class="lbl">Economic Capital</div></div>
+    <div class="summary-card"><div class="val">${fmt(totals.exposure)}</div><div class="lbl">Total Exposure</div></div>
+    <div class="summary-card"><div class="val">${fmt(totals.revenue)}</div><div class="lbl">Total Revenue</div></div>
+    <div class="summary-card"><div class="val" style="color:var(--red)">${fmt(totals.el)}</div><div class="lbl">Expected Loss</div></div>
+  `;
+
+  const productLabels = {}; products.forEach(p => productLabels[p.key]=p.description.split('(')[0].trim());
+  let rows = portfolioOutputs.map((f, idx) => {
+    const o=f.output, inp=f.input;
+    return `<tr>
+      <td><strong>${f.name}</strong></td>
+      <td>${productLabels[o.product_type]||o.product_type}</td>
+      <td>${inp.bank||'-'}</td>
+      <td>${o.rating}</td>
+      <td class="num">${fmt(inp.average_drawn)}</td>
+      <td class="num">${(inp.spread*10000).toFixed(0)}bp</td>
+      <td class="num">${(o.global_grr*100).toFixed(0)}%</td>
+      <td class="num">${fmt(o.exposure)}</td>
+      <td class="num">${(o.risk_weight*100).toFixed(2)}%</td>
+      <td class="num">${fmt(o.fpe)}</td>
+      <td class="num">${fmt(o.revenue)}</td>
+      <td class="num" style="color:${rc(o.raroc)};font-weight:700">${(o.raroc*100).toFixed(2)}%</td>
+    </tr>`;
+  }).join('');
+  rows += `<tr class="total-row"><td colspan="7"><strong>PORTFOLIO</strong></td>
+    <td class="num">${fmt(totals.exposure)}</td><td></td><td class="num">${fmt(totals.fpe)}</td>
+    <td class="num">${fmt(totals.revenue)}</td><td class="num" style="color:${rc(pRaroc)};font-weight:700">${(pRaroc*100).toFixed(2)}%</td></tr>`;
+  document.getElementById('portfolio-tbody').innerHTML = rows;
+  updateFacilitySelectors();
+}
+
+function resetPortfolio() {
+  portfolio=[]; portfolioOutputs=[];
+  document.getElementById('portfolio-empty').style.display='block';
+  document.getElementById('portfolio-loaded').style.display='none';
+  document.getElementById('file-input').value='';
+  updateFacilitySelectors();
+}
+
+function showAddForm() { document.getElementById('add-form').classList.add('show'); }
+function hideAddForm() { document.getElementById('add-form').classList.remove('show'); }
+
+function updateFacilitySelectors() {
+  for (const id of ['solve_facility','sens_facility']) {
+    const sel = document.getElementById(id);
+    sel.innerHTML = portfolioOutputs.map((f,i) => `<option value="${i}">${f.name}</option>`).join('');
+  }
+}
+
+// ── Bank Comparison (portfolio-level) ──────────────────
+async function runPortfolioComparison() {
+  const checked = [...document.querySelectorAll('#bank-checkboxes input:checked')].map(cb=>cb.value);
+  if (!checked.length || !portfolio.length) return;
+
+  const facilities = portfolio.map(inp => buildDealFromInput(inp));
+  const data = await api('compare-portfolio', {facilities, bank_keys: checked});
+  const comps = data.comparisons;
+
+  document.getElementById('compare-results').style.display = 'block';
+
+  const maxR = Math.max(...comps.map(c=>c.raroc),0.001);
+  const minR = Math.min(...comps.map(c=>c.raroc),0);
+  const range = maxR-minR||0.01;
+
+  document.getElementById('compare-chart').innerHTML = comps.map(c => {
+    const pct = Math.max(((c.raroc-minR)/range)*100, 2);
+    const color = rc(c.raroc);
+    const confCls = {high:'conf-high',medium:'conf-medium',low:'conf-low'}[c.confidence]||'conf-low';
+    return `<div class="chart-row">
+      <div class="chart-label"><span class="conf ${confCls}"></span>${c.bank_name}</div>
+      <div class="chart-bar-bg"><div class="chart-bar" style="width:${pct}%;background:${color}"></div></div>
+      <div class="chart-val" style="color:${color}">${(c.raroc*100).toFixed(2)}%</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('compare-tbody').innerHTML = comps.map(c => {
+    const confCls = {high:'conf-high',medium:'conf-medium',low:'conf-low'}[c.confidence]||'conf-low';
+    return `<tr>
+      <td><span class="conf ${confCls}"></span></td>
+      <td><strong>${c.bank_name}</strong></td><td>${c.country}</td>
+      <td class="num">${(c.cost_to_income*100).toFixed(0)}%</td>
+      <td class="num">${(c.tax_rate*100).toFixed(1)}%</td>
+      <td class="num">${fmt(c.total_exposure)}</td>
+      <td class="num">${fmt(c.total_fpe)}</td>
+      <td class="num">${fmt(c.total_revenue)}</td>
+      <td class="num">${fmt(c.total_el)}</td>
+      <td class="num" style="color:${rc(c.raroc)};font-weight:700">${(c.raroc*100).toFixed(2)}%</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Solver ─────────────────────────────────────────────
+async function runSolver() {
+  const idx = parseInt(document.getElementById('solve_facility').value);
+  if (isNaN(idx) || !portfolioOutputs[idx]) { alert('Select a facility first'); return; }
+  const deal = buildDealFromInput(portfolioOutputs[idx].input);
+  const target = parseFloat(document.getElementById('solve_target').value)/100;
+  const solveFor = document.getElementById('solve_for').value;
+  const area = document.getElementById('solve-result-area');
+
+  try {
+    const data = await api('solve', {deal, target_raroc:target, solve_for:solveFor});
+    const achieved = (data.output.raroc*100).toFixed(2);
+    const facilityName = portfolioOutputs[idx].name;
+
+    if (solveFor==='spread') {
+      const bp = data.solved_bp.toFixed(1);
+      const currentBp = deal.spread*10000;
+      const gap = data.solved_bp - currentBp;
+      const gapClass = gap<=0 ? 'over':'under';
+      const gapColor = gap<=0 ? 'var(--green)':'var(--red)';
+      const gapLabel = gap<=0 ? `${(-gap).toFixed(0)}bp below bank's minimum` : `Need +${gap.toFixed(0)}bp more`;
+      area.innerHTML = `<div class="card fade-in" style="margin-top:16px;">
+        <h3>${facilityName}</h3>
+        <div class="summary-row">
+          <div class="summary-card"><div class="val" style="color:var(--green)">${bp} bp</div><div class="lbl">Minimum Spread for ${(target*100).toFixed(0)}% RAROC</div></div>
+          <div class="summary-card"><div class="val">${achieved}%</div><div class="lbl">Achieved RAROC</div></div>
+          <div class="summary-card"><div class="val" style="color:${gapColor}">${gap>0?'+':''}${gap.toFixed(0)}bp</div><div class="lbl">${gapLabel}</div></div>
+        </div>
+      </div>`;
+    } else {
+      const grr = (data.solved_value*100).toFixed(1);
+      area.innerHTML = `<div class="card fade-in" style="margin-top:16px;">
+        <h3>${facilityName}</h3>
+        <div class="summary-row">
+          <div class="summary-card"><div class="val" style="color:var(--green)">${grr}%</div><div class="lbl">Minimum GRR for ${(target*100).toFixed(0)}% RAROC</div></div>
+          <div class="summary-card"><div class="val">${achieved}%</div><div class="lbl">Achieved RAROC</div></div>
+        </div>
+      </div>`;
+    }
+  } catch(e) { area.innerHTML = `<div class="card" style="color:var(--red);margin-top:16px;">${e.message}</div>`; }
+}
+
+// ── Sensitivity ────────────────────────────────────────
+async function runSensitivity() {
+  const idx = parseInt(document.getElementById('sens_facility').value);
+  if (isNaN(idx) || !portfolioOutputs[idx]) { alert('Select a facility first'); return; }
+  const deal = buildDealFromInput(portfolioOutputs[idx].input);
+  const param = document.getElementById('sens_param').value;
+
+  const data = await api('sensitivity', {deal, parameter:param});
+  document.getElementById('sens-result').style.display = 'block';
+  document.getElementById('sens-title').textContent = `${portfolioOutputs[idx].name} — ${param.toUpperCase()} sensitivity`;
+
+  const points = data.points;
+  const maxR = Math.max(...points.map(p=>p.raroc),0.001);
+  const minR = Math.min(...points.map(p=>p.raroc),0);
+  const range = maxR-minR||0.01;
+
+  document.getElementById('sens-chart').innerHTML = points.map(p => {
+    const pct = Math.max(((p.raroc-minR)/range)*100, 2);
+    const color = rc(p.raroc);
+    const label = p.rating_name ? `${p.label} (${p.rating_name})` : p.label;
+    return `<div class="chart-row">
+      <div class="chart-label">${label}</div>
+      <div class="chart-bar-bg"><div class="chart-bar" style="width:${pct}%;background:${color}"></div></div>
+      <div class="chart-val" style="color:${color}">${(p.raroc*100).toFixed(2)}%</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Settings ───────────────────────────────────────────
+async function saveConfig() {
+  await api('config', {
+    regime, risk_free_rate: parseFloat(document.getElementById('cfg_rfr').value)/100,
+    bank_tax_rate: parseFloat(document.getElementById('cfg_tax').value)/100,
+    funding_cost_bp: parseFloat(document.getElementById('cfg_funding').value)/10000,
+    target_raroc: parseFloat(document.getElementById('cfg_target').value)/100,
+    output_floor_pct: parseFloat(document.getElementById('cfg_floor').value)/100,
+    pd_floor: parseFloat(document.getElementById('cfg_pd_floor').value)/10000,
+  });
+  // Recalculate portfolio if loaded
+  if (portfolio.length) {
+    const form = new FormData();
+    // Re-run portfolio through API
+    const facilities = portfolio.map(inp => buildDealFromInput(inp));
+    for (let i=0; i<facilities.length; i++) {
+      const data = await api('calculate', facilities[i]);
+      portfolioOutputs[i].output = data.output;
+      portfolioOutputs[i].input = data.input;
+      portfolio[i] = data.input;
+    }
+    renderPortfolio();
+  }
+}
+
+function setRegime(r) {
+  regime = r;
+  document.querySelectorAll('.regime-toggle button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-'+r).classList.add('active');
+  saveConfig();
+}
+
+// ── Tabs ───────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+init();
+</script>
+</body>
+</html>

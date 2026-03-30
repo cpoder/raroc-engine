@@ -1,0 +1,74 @@
+Type;Label;Banking product type
+00/01/00;;"""Caution"""
+1D-AV;Garantie à 1ère demande en remplacement de l'avance;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+1D-RG;Garantie à 1ère demande en remplacement de la retenue de garantie;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+AC;;"""Caution"""
+AD;;"""Caution"""
+AF;;"""Caution"""
+AV/1°;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+Affermage Assainissement;;"""Caution"""
+Affermage Eau;;"""Caution"""
+B. Fin;Caution de bonne exécution;"""Caution"""
+BE;;"""Caution"""
+BE/1°;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+BF;;"""Caution"""
+Bail;;"""Caution"""
+Bid Bond;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+C. Solidaire;Cautionnement solidaire;"""Caution"""
+C/C;;"""Caution"""
+C/CG;;"""Caution"""
+C/GA;;"""Caution"""
+C/GAR;;"""Caution"""
+C/GAR RG;;"""Caution"""
+C/ST;;"""Caution"""
+CA-AV;Caution solidaire en remplacement de l'avance;"""Caution"""
+CA-BF;Bonne fin;"""Caution"""
+CA-Loyer;Caution pour loyer;"""Caution"""
+CA-RG;Caution solidaire en remplacement de la retenue d egrantie;"""Caution"""
+CA-RV;;"""Caution"""
+CAUT. DEF;;"""Caution"""
+CB;;"""Caution"""
+CD;;"""Caution"""
+CG;Contre garantie;"""Caution"""
+CG/CA;Contre garantie de caution;"""Caution"""
+CPS;;"""Caution"""
+CPS RG;;"""Caution"""
+CPS/RG 1°;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+CS;;"""Caution"""
+CS/1°;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+Caution;Caution;"""Caution"""
+"""Caution""";Caution;"""Caution"""
+Caution Solidaire;Caution;"""Caution"""
+Caution de bonne exécution;Caution;"""Caution"""
+D;;"""Caution"""
+Engt INTRA;Engagement intragroupe;
+Financial First Demand Guarantee;;Financial First Demand Guarantee (StandBy LC, import LC, payment LC…)
+G;;"""Caution"""
+GP;;"""Caution"""
+Garantie de performance;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+Garantie financière;;Financial First Demand Guarantee (StandBy LC, import LC, payment LC…)
+Loyer;;Financial First Demand Guarantee (StandBy LC, import LC, payment LC…)
+Operation Bond;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+PS;;"""Caution"""
+Payment Bond;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+Performance Bond;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+RA;;"""Caution"""
+REMBOUR;;"""Caution"""
+RF;;"""Caution"""
+RG;;"""Caution"""
+RG fourn;;"""Caution"""
+RG/1;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+RG/1°;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+RG/1° AC;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+RG/1° AV;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+RG/1° RG;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+RG/1°AC;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+RG/1°RG;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+RG/fourn.;;"""Caution"""
+ST;Caution de sous-traitance;"""Caution"""
+Sponsors Guarantee;;Financial First Demand Guarantee (StandBy LC, import LC, payment LC…)
+Technical First Demand Guarantee;;Technical First Demand Guarantee (Bid Bond, Perf. Bond, Adv. Pay. Bond, Tax…)
+Transport de déchets;;"""Caution"""
+Travaux;;"""Caution"""
+Travaux - Lot 14;;"""Caution"""
+Travaux - Lot 2;;"""Caution"""

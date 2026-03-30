@@ -1,0 +1,34 @@
+Type of Banking product;Exposition (avant de retirer les garanties);Average Drawn (if confirmed);Autorisation (if confirmed);Garantie (if confirmed);Average Drawn (if not confirmed);Autorisation (if not confirmed);Garantie (if not confirmed)
+Short Term Credit Lines;Si confirmé : Average drawn + 75% (Authorisation - Average drawn) //// Si non confirmé : Average drawn;0.25;0.75;-1;1;0;-1
+MLT Loan or Credit Lines;Si confirmé : Average drawn + 75% (Authorisation - Average drawn) //// Si non confirmé : Average drawn;0.25;0.75;-1;1;0;-1
+Leasing;Average drawn + 75% (Authorisation - Average drawn);0.25;0.75;-1;1;0;-1
+"""Caution""";;0.05;0.15;-1;0.2;0;-1
+Technical First Demand Guarantee (Bid ond, Perf. Bond, Adv. Pay. Bond, Tax…);;0.125;0.375;-1;0.5;0;-1
+Financial First Demand Guarantee (StandBy LC, import LC, payment LC…);Average drawn + 75% (Authorisation - Average drawn);0.25;0.75;-1;1;0;-1
+Import Documentary Credit;;0.125;0.375;-1;0.5;0;-1
+Buyer or Supplier Credit;Average drawn + 75% (Authorisation - Average drawn);0.25;0.75;-1;1;0;-1
+Confirmation of Export LC;0;0;0;0;0.5;0;-1
+"Forfaiting or Discount Credit Line (inc. French ""Dailly"")";Average drawn + 75% (Authorisation - Average drawn);0.25;0.75;-1;1;0;-1
+IR Swap;0;0;0;0;1;0;-1
+IR Option;0;0;0;0;1;0;-1
+Cross Currency Swap;0;0;0;0;1;0;-1
+Cross Currency Option;0;0;0;0;1;0;-1
+FX Swap;0;0;0;0;1;0;-1
+FX Option;0;0;0;0;1;0;-1
+Commodities Swap;0;0;0;0;1;0;-1
+Commodities Option;0;0;0;0;1;0;-1
+Other OTC trading Swap;0;0;0;0;1;0;-1
+Other OTC trading Option;0;0;0;0;1;0;-1
+Forward;0;0;0;0;1;0;-1
+Spot;0;0;0;0;0;0;0
+Medium Long Term Investment;0;0;0;0;0;0;0
+Short Term Investment;0;0;0;0;0;0;0
+Cash Management;0;0;0;0;0;0;0
+M&A;0;0;0;0;0;0;0
+Capital Market (Bonds, Private Placement);0;0;0;0;0;0;0
+Profit Sharing Program (Administrative);0;0;0;0;0;0;0
+Profit Sharing Program (Investment);0;0;0;0;0;0;0
+Custody and Brokerage;0;0;0;0;0;0;0
+Other Advisory or Consulting Fees;0;0;0;0;0;0;0
+Commercial Paper Program;0;0;0;0;0;0;0
+Other Side Business;0;0;0;0;0;0;0

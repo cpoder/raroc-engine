@@ -1,0 +1,7 @@
+Catégorie;Durée de l'opération;Rémunération de la banque
+Swap JJ;0;0.000001
+Swap > 1J;2;0.000003
+Swap > 1W;8;0.000005
+Swap > 1M;31;0.00001
+Swap > 6M;183;0.0005
+Swap> 1Y;366;0.001

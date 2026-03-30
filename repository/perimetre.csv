@@ -1,0 +1,10 @@
+Division;Entite;Pays;Annee;Rating
+toto;*;France;*;Aaa
+*;titi;France;*;Aaa
+VEOLIA;VEOLIA;France;*;A3
+test;forward;France;*;Baa1
+test;garanties;France;*;Baa1
+ENERGIE;*;;*;Baa1
+TRANSPORT;*;;*;Baa1
+PROPRETE;*;;*;Baa1
+EAU;*;;*;Baa1

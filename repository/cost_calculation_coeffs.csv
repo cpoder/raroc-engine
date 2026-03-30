@@ -1,0 +1,34 @@
+Type of banking product;Pour Information;Other Coeff;Coeff revenues;Constante
+Short Term Credit Lines;40%  of the revenues;0;0.4;0
+MLT Loan or Credit Lines;40%  of the revenues;0;0.4;0
+Leasing;40%  of the revenues;0;0.4;0
+"""Caution""";40%  of the revenues;0;0.4;0
+Technical First Demand Guarantee (Bid ond, Perf. Bond, Adv. Pay. Bond, Tax…);40%  of the revenues;0;0.4;0
+Financial First Demand Guarantee (StandBy LC, import LC, payment LC…);40%  of the revenues;0;0.4;0
+Import Documentary Credit;40%  of the revenues;0;0.4;0
+Buyer or Supplier Credit;40%  of the revenues;0;0.4;0
+Confirmation of Export LC;40%  of the revenues;0;0.4;0
+"Forfaiting or Discount Credit Line (inc. French ""Dailly"")";40%  of the revenues;0;0.4;0
+IR Swap;75%  of the revenues;0;0.75;0
+IR Option;75%  of the revenues;0;0.75;0
+Cross Currency Swap;75%  of the revenues;0;0.75;0
+Cross Currency Option;75%  of the revenues;0;0.75;0
+FX Swap;75%  of the revenues;0;0.75;0
+FX Option;75%  of the revenues;0;0.75;0
+Commodities Swap;75%  of the revenues;0;0.75;0
+Commodities Option;75%  of the revenues;0;0.75;0
+Other OTC trading Swap;75%  of the revenues;0;0.75;0
+Other OTC trading Option;75%  of the revenues;0;0.75;0
+Forward;75%  of the revenues;0;0.75;0
+Spot;75%  of the revenues;0;0.75;0
+Medium Long Term Investment;0,1% of the incur;0.001;0;0
+Short Term Investment;0,03% of the incur;0.003;0;0
+Cash Management;80% of the revenues;0;0.8;0
+M&A;à  déterminer ;0;0;0
+Capital Market (Bonds, Private Placement);60% of the revenues;0;0.6;0
+Profit Sharing Program (Administrative);12 € per acount;12;0;0
+Profit Sharing Program (Investment);0,1% of the incur;0.001;0;0
+Custody and Brokerage;à  déterminer ;0;0;0
+Other Advisory or Consulting Fees;à  déterminer ;0;0;0
+Commercial Paper Program;75%  of the revenues;0;0.75;0
+Other Side Business;à  déterminer ;0;0;0

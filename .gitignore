@@ -1,0 +1,40 @@
+# Premium data (not open source)
+premium_banks.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+
+# Generated output
+results.xlsx
+results.csv
+
+# Old HSQLDB files
+repository/rarocdb.*
+
+# Excel data files
+*.xlsx
+
+# Downloaded PDFs (working files)
+*.pdf

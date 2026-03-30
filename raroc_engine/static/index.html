@@ -349,9 +349,10 @@ function showProModal() { document.getElementById('pro-modal').style.display='fl
 function hideProModal() { document.getElementById('pro-modal').style.display='none'; }
 
 function startCheckout() {
-  const email = prompt('Your email address:');
+  const email = prompt('Your email address (for receipt):');
   if (!email) return;
-  window.location.href = API_BASE + '/v1/checkout?email=' + encodeURIComponent(email);
+  // Redirect directly -- the API will redirect to Stripe
+  window.open(API_BASE + '/v1/checkout?email=' + encodeURIComponent(email), '_blank');
 }
 
 function activateKey() {

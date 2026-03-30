@@ -351,8 +351,7 @@ function hideProModal() { document.getElementById('pro-modal').style.display='no
 function startCheckout() {
   const email = prompt('Your email address (for receipt):');
   if (!email) return;
-  // Redirect directly -- the API will redirect to Stripe
-  window.open(API_BASE + '/v1/checkout?email=' + encodeURIComponent(email), '_blank');
+  window.location.href = API_BASE + '/v1/checkout?email=' + encodeURIComponent(email);
 }
 
 function activateKey() {

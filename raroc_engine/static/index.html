@@ -109,11 +109,50 @@ header .sub { color: #94a3b8; font-size: 13px; }
     <h1><span>RAROC</span> Engine</h1>
     <div class="sub">See your credit through your banker's eyes</div>
   </div>
-  <div class="regime-toggle">
-    <button id="btn-basel3" class="active" onclick="setRegime('basel3')">Basel III</button>
-    <button id="btn-basel2" onclick="setRegime('basel2')">Basel II</button>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <div class="regime-toggle">
+      <button id="btn-basel3" class="active" onclick="setRegime('basel3')">Basel III</button>
+      <button id="btn-basel2" onclick="setRegime('basel2')">Basel II</button>
+    </div>
+    <div id="pro-badge" style="display:none;background:var(--green);color:#000;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;">PRO</div>
+    <button id="btn-unlock" class="btn btn-sm" style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-size:11px;padding:5px 12px;" onclick="showProModal()">Unlock all banks</button>
   </div>
 </header>
+
+<!-- Pro modal -->
+<div id="pro-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;display:none;align-items:center;justify-content:center;">
+  <div class="card" style="max-width:480px;margin:auto;margin-top:15vh;">
+    <h2 style="color:var(--text);font-size:20px;margin-bottom:8px;">Unlock All 35 Banks</h2>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:20px;">
+      Free version includes 4 banks. Pro unlocks 35 banks across 13 countries, extracted from actual Pillar 3 regulatory filings.
+    </p>
+    <div style="display:flex;gap:12px;margin-bottom:20px;">
+      <div style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;">Free</div>
+        <div style="color:var(--text3);font-size:12px;margin:8px 0;">4 banks</div>
+        <div style="color:var(--text3);font-size:11px;">BNP, HSBC, Deutsche Bank, JP Morgan</div>
+      </div>
+      <div style="flex:1;background:var(--bg);border:2px solid var(--accent);border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:var(--accent);">EUR 49<span style="font-size:14px;font-weight:400;">/mo</span></div>
+        <div style="color:var(--text3);font-size:12px;margin:8px 0;">35 banks, 13 countries</div>
+        <div style="color:var(--text3);font-size:11px;">All from actual Pillar 3 filings</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:12px;" onclick="startCheckout()">Subscribe with Stripe</button>
+    <div style="text-align:center;color:var(--text3);font-size:12px;margin-bottom:12px;">or</div>
+    <div class="form-group" style="margin-bottom:8px;">
+      <label>Already have an API key?</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="api-key-input" placeholder="rk_..." style="flex:1;">
+        <button class="btn btn-sm btn-primary" onclick="activateKey()">Activate</button>
+      </div>
+    </div>
+    <div id="key-error" style="color:var(--red);font-size:12px;display:none;"></div>
+    <div style="text-align:center;margin-top:12px;">
+      <button class="btn btn-sm btn-outline" onclick="hideProModal()">Continue with free version</button>
+    </div>
+  </div>
+</div>
 
 <div class="tabs">
   <button class="active" onclick="showTab('portfolio')">Portfolio</button>
@@ -301,6 +340,66 @@ header .sub { color: #94a3b8; font-size: 13px; }
 <script>
 // ── State ──────────────────────────────────────────────
 let ratings=[], products=[], bankProfiles=[], portfolio=[], portfolioOutputs=[], regime='basel3';
+let isPro = false;
+const FREE_BANKS = ['bnp_paribas','hsbc','deutsche_bank','jp_morgan'];
+const API_BASE = window.location.hostname === 'localhost' ? '' : 'https://api.openraroc.com';
+
+// ── Pro/Free management ────────────────────────────────
+function showProModal() { document.getElementById('pro-modal').style.display='flex'; }
+function hideProModal() { document.getElementById('pro-modal').style.display='none'; }
+
+function startCheckout() {
+  const email = prompt('Your email address:');
+  if (!email) return;
+  window.location.href = API_BASE + '/v1/checkout?email=' + encodeURIComponent(email);
+}
+
+function activateKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key) return;
+  // Validate key against the API
+  fetch(API_BASE + '/v1/banks', {headers:{'Authorization':'Bearer '+key}})
+    .then(r => {
+      if (r.ok) {
+        localStorage.setItem('raroc_api_key', key);
+        isPro = true;
+        updateProUI();
+        hideProModal();
+        renderPortfolio();
+      } else {
+        document.getElementById('key-error').textContent = 'Invalid or expired key';
+        document.getElementById('key-error').style.display = 'block';
+      }
+    }).catch(() => {
+      document.getElementById('key-error').textContent = 'Could not verify key';
+      document.getElementById('key-error').style.display = 'block';
+    });
+}
+
+function checkProStatus() {
+  // Check URL for key (from Stripe redirect)
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('key')) {
+    localStorage.setItem('raroc_api_key', params.get('key'));
+    window.history.replaceState({}, '', '/');
+  }
+  // Check localStorage
+  const savedKey = localStorage.getItem('raroc_api_key');
+  if (savedKey) {
+    isPro = true;
+  }
+  updateProUI();
+}
+
+function updateProUI() {
+  document.getElementById('pro-badge').style.display = isPro ? 'block' : 'none';
+  document.getElementById('btn-unlock').style.display = isPro ? 'none' : 'block';
+}
+
+function getAvailableBanks() {
+  if (isPro) return bankProfiles;
+  return bankProfiles.filter(b => FREE_BANKS.includes(b.key));
+}
 
 async function api(path, body) {
   const opts = body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : {};
@@ -327,15 +426,10 @@ async function init() {
     ratings.forEach(r => { const o=document.createElement('option'); o.value=r.sp||r.moodys; o.textContent=`${r.sp||''} / ${r.moodys}`; if(r.moodys==='Baa1')o.selected=true; sel.appendChild(o); });
   }
   // Bank checkboxes
-  const confColor = {high:'var(--green)',medium:'var(--yellow)',low:'var(--text3)'};
-  const confClass = {high:'conf-high',medium:'conf-medium',low:'conf-low'};
-  document.getElementById('bank-checkboxes').innerHTML = bankProfiles.map(b =>
-    `<label style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;">
-      <input type="checkbox" value="${b.key}" ${b.confidence==='high'?'checked':''} style="accent-color:var(--accent);width:14px;height:14px;">
-      <span class="conf ${confClass[b.confidence]||'conf-low'}"></span>
-      <strong>${b.name}</strong> <span style="color:var(--text3)">${b.country}</span>
-    </label>`
-  ).join('');
+  renderBankCheckboxes();
+
+  // Check pro status (from localStorage or URL key param)
+  checkProStatus();
 
   // Load config
   document.getElementById('cfg_rfr').value = (cfg.risk_free_rate*100).toFixed(2);
@@ -476,6 +570,30 @@ function updateFacilitySelectors() {
     const sel = document.getElementById(id);
     sel.innerHTML = portfolioOutputs.map((f,i) => `<option value="${i}">${f.name}</option>`).join('');
   }
+}
+
+function renderBankCheckboxes() {
+  const available = getAvailableBanks();
+  const confClass = {high:'conf-high',medium:'conf-medium',low:'conf-low'};
+  const lockedBanks = isPro ? [] : bankProfiles.filter(b => !FREE_BANKS.includes(b.key));
+
+  let html = available.map(b =>
+    `<label style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;">
+      <input type="checkbox" value="${b.key}" checked style="accent-color:var(--accent);width:14px;height:14px;">
+      <span class="conf ${confClass[b.confidence]||'conf-low'}"></span>
+      <strong>${b.name}</strong> <span style="color:var(--text3)">${b.country}</span>
+    </label>`
+  ).join('');
+
+  if (lockedBanks.length > 0) {
+    html += `<label style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;opacity:0.6;" onclick="showProModal()">
+      <span style="font-size:14px;">&#128274;</span>
+      <span>+${lockedBanks.length} more banks</span>
+      <span style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;">PRO</span>
+    </label>`;
+  }
+
+  document.getElementById('bank-checkboxes').innerHTML = html;
 }
 
 // ── Bank Comparison (portfolio-level) ──────────────────

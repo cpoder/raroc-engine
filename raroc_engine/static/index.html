@@ -386,9 +386,15 @@ function activateKey() {
 function checkProStatus() {
   // Check URL for key (from Stripe redirect)
   const params = new URLSearchParams(window.location.search);
-  if (params.get('key')) {
-    localStorage.setItem('raroc_api_key', params.get('key'));
+  const urlKey = params.get('key');
+  if (urlKey) {
+    localStorage.setItem('raroc_api_key', urlKey);
+    isPro = true;
     window.history.replaceState({}, '', '/');
+    // Show success message
+    setTimeout(() => {
+      alert('Pro activated! Your API key: ' + urlKey + '\n\nSave this key -- you can use it in the CLI or MCP server too.\n\nIt has been saved in your browser automatically.');
+    }, 500);
   }
   // Check localStorage
   const savedKey = localStorage.getItem('raroc_api_key');
@@ -396,6 +402,7 @@ function checkProStatus() {
     isPro = true;
   }
   updateProUI();
+  renderBankCheckboxes();
 }
 
 function updateProUI() {

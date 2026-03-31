@@ -26,9 +26,15 @@ services:
       - "127.0.0.1:8001:8001"
     volumes:
       - ../premium_banks.json:/app/premium_banks.json:ro
-      - api_keys:/app/api
+      - api_data:/app/data
     environment:
       - RAROC_ADMIN_KEY=${RAROC_ADMIN_KEY:-change-me-in-production}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - STRIPE_PRICE_ID=${STRIPE_PRICE_ID:-}
+      - WEBAPP_URL=${WEBAPP_URL:-https://openraroc.com}
+      - API_URL=${API_URL:-https://api.openraroc.com}
+      - RAROC_DATA_DIR=/app/data
 
 volumes:
-  api_keys:
+  api_data:

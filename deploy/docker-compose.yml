@@ -9,7 +9,7 @@ services:
     container_name: raroc-web
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8000:8000"
+      - "0.0.0.0:8800:8000"
     volumes:
       - ../premium_banks.json:/app/premium_banks.json:ro
     environment:
@@ -23,7 +23,7 @@ services:
     container_name: raroc-api
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8001:8001"
+      - "0.0.0.0:8801:8001"
     volumes:
       - ../premium_banks.json:/app/premium_banks.json:ro
       - api_data:/app/data

@@ -7,7 +7,7 @@ from dataclasses import asdict
 from typing import Optional, List
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from .config import EngineConfig
@@ -117,6 +117,104 @@ class PortfolioCompareRequest(BaseModel):
 @app.get("/")
 async def index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/methodology", response_class=HTMLResponse)
+async def methodology():
+    """Render METHODOLOGY.md as a styled HTML page."""
+    md_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "METHODOLOGY.md")
+    if not os.path.isfile(md_path):
+        raise HTTPException(404, "Methodology document not found")
+
+    with open(md_path) as f:
+        md_text = f.read()
+
+    # Simple markdown to HTML (no external dependency)
+    import re
+    html = md_text
+
+    # Code blocks
+    html = re.sub(r'```(\w*)\n(.*?)```', lambda m: f'<pre><code>{m.group(2).replace("<","&lt;")}</code></pre>', html, flags=re.DOTALL)
+
+    # Tables
+    def convert_table(m):
+        lines = [l.strip() for l in m.group(0).strip().split('\n') if l.strip()]
+        if len(lines) < 2:
+            return m.group(0)
+        headers = [c.strip() for c in lines[0].split('|') if c.strip()]
+        rows = []
+        for line in lines[2:]:  # skip separator
+            cols = [c.strip() for c in line.split('|') if c.strip()]
+            if cols:
+                rows.append(cols)
+        th = ''.join(f'<th>{h}</th>' for h in headers)
+        trs = ''.join('<tr>' + ''.join(f'<td>{c}</td>' for c in row) + '</tr>' for row in rows)
+        return f'<table><thead><tr>{th}</tr></thead><tbody>{trs}</tbody></table>'
+
+    html = re.sub(r'(?:^\|.+\|$\n?)+', convert_table, html, flags=re.MULTILINE)
+
+    # Headers
+    html = re.sub(r'^### (.+)$', r'<h3>\1</h3>', html, flags=re.MULTILINE)
+    html = re.sub(r'^## (.+)$', r'<h2>\1</h2>', html, flags=re.MULTILINE)
+    html = re.sub(r'^# (.+)$', r'<h1>\1</h1>', html, flags=re.MULTILINE)
+
+    # Horizontal rules
+    html = re.sub(r'^---+$', '<hr>', html, flags=re.MULTILINE)
+
+    # Bold and italic
+    html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', html)
+    html = re.sub(r'\*(.+?)\*', r'<em>\1</em>', html)
+
+    # Inline code
+    html = re.sub(r'`([^`]+)`', r'<code class="inline">\1</code>', html)
+
+    # Paragraphs (blank lines)
+    html = re.sub(r'\n\n+', '</p><p>', html)
+    html = f'<p>{html}</p>'
+
+    # Clean up empty paragraphs around block elements
+    for tag in ['h1','h2','h3','hr','pre','table','ul','ol']:
+        html = html.replace(f'<p><{tag}', f'<{tag}')
+        html = html.replace(f'</{tag}></p>', f'</{tag}>')
+
+    page = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAROC Calculation Methodology - OpenRAROC</title>
+<style>
+  :root {{ --bg: #0f172a; --surface: #1e293b; --border: #334155; --text: #e2e8f0; --text2: #94a3b8; --accent: #3b82f6; }}
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  body {{ background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.7; }}
+  .container {{ max-width: 780px; margin: 0 auto; padding: 32px 24px 64px; }}
+  a {{ color: var(--accent); text-decoration: none; }}
+  .back {{ display: inline-block; margin-bottom: 24px; font-size: 13px; color: var(--text2); }}
+  .back:hover {{ color: var(--accent); }}
+  h1 {{ font-size: 28px; margin-bottom: 8px; color: #fff; }}
+  h2 {{ font-size: 20px; margin: 32px 0 12px; color: #fff; border-bottom: 1px solid var(--border); padding-bottom: 8px; }}
+  h3 {{ font-size: 16px; margin: 24px 0 8px; color: #fff; }}
+  p {{ margin-bottom: 14px; color: var(--text); }}
+  hr {{ border: none; border-top: 1px solid var(--border); margin: 24px 0; }}
+  strong {{ color: #fff; }}
+  em {{ color: var(--text2); font-style: italic; }}
+  pre {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; margin: 14px 0; font-size: 13px; line-height: 1.5; }}
+  code {{ font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; }}
+  code.inline {{ background: var(--surface); padding: 2px 6px; border-radius: 4px; font-size: 12px; }}
+  table {{ width: 100%; border-collapse: collapse; margin: 14px 0; background: var(--surface); border-radius: 8px; overflow: hidden; font-size: 13px; }}
+  th {{ text-align: left; padding: 8px 12px; background: rgba(59,130,246,0.1); color: var(--accent); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; }}
+  td {{ padding: 8px 12px; border-top: 1px solid var(--border); }}
+  tr:hover td {{ background: rgba(59,130,246,0.03); }}
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="/" class="back">&larr; Back to OpenRAROC</a>
+  {html}
+</div>
+</body>
+</html>"""
+    return page
 
 
 @app.post("/api/calculate")

@@ -361,6 +361,22 @@ ADMIN_HTML = """<!DOCTYPE html>
   .stat { background: var(--surface); border-radius: 8px; padding: 16px 20px; flex: 1; }
   .stat .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
   .stat .value { font-size: 24px; font-weight: 700; }
+
+  /* Email section */
+  .email-actions { background: var(--surface); border-radius: 8px; padding: 16px; display: flex; gap: 16px; align-items: stretch; flex-wrap: wrap; }
+  .email-card { flex: 1; min-width: 240px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .email-card h3 { font-size: 14px; font-weight: 600; color: var(--text); }
+  .email-card p { font-size: 12px; color: var(--muted); margin: 0; flex: 1; }
+  .email-card textarea { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12px; font-family: inherit; resize: vertical; min-height: 48px; }
+  .email-card textarea:focus { outline: none; border-color: var(--accent); }
+  .btn-green { background: rgba(34,197,94,0.15); color: var(--green); }
+  .btn-green:hover { background: rgba(34,197,94,0.25); }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 20px; font-size: 13px; color: var(--text); box-shadow: 0 4px 12px rgba(0,0,0,0.3); transform: translateY(80px); opacity: 0; transition: all 0.3s ease; z-index: 200; max-width: 400px; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: var(--green); }
+  .toast.error { border-color: var(--red); }
 </style>
 </head>
 <body>
@@ -420,7 +436,28 @@ ADMIN_HTML = """<!DOCTYPE html>
       <tbody id="key-tbody"></tbody>
     </table>
   </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2>Emails</h2>
+    </div>
+    <div class="email-actions">
+      <div class="email-card">
+        <h3>Renewal Reminders</h3>
+        <p>Send reminders to customers with keys expiring in 7 or 30 days. Safe to run multiple times — only sends once per day per customer.</p>
+        <button class="btn btn-green" onclick="sendReminders()" id="btn-reminders" style="padding:8px 16px;">Send Reminders</button>
+      </div>
+      <div class="email-card">
+        <h3>Data Update Notification</h3>
+        <p>Notify all active Pro customers about a bank data update.</p>
+        <textarea id="update-message" placeholder="e.g. Updated 19 banks to FY2025 data from latest Pillar 3 filings."></textarea>
+        <button class="btn btn-green" onclick="sendDataUpdate()" id="btn-update" style="padding:8px 16px;">Send to All Customers</button>
+      </div>
+    </div>
+  </div>
 </div>
+
+<div class="toast" id="toast"></div>
 
 <script>
 let adminKey = sessionStorage.getItem('raroc_admin_key') || '';
@@ -557,6 +594,49 @@ async function revokeKey(key) {
     method: 'DELETE', headers: headers(),
   });
   if (r.ok) loadData();
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type || '');
+  setTimeout(() => { t.className = 'toast'; }, 4000);
+}
+
+async function sendReminders() {
+  const btn = document.getElementById('btn-reminders');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  try {
+    const r = await fetch(apiBase() + '/admin/api/send-reminders', { method: 'POST', headers: headers() });
+    const d = await r.json();
+    if (d.sent > 0) {
+      showToast('Sent ' + d.sent + ' reminder(s): ' + d.reminders.map(r => r.email).join(', '), 'success');
+    } else {
+      showToast('No reminders needed today', 'success');
+    }
+  } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  btn.disabled = false; btn.textContent = 'Send Reminders';
+}
+
+async function sendDataUpdate() {
+  const msg = document.getElementById('update-message').value.trim();
+  if (!msg) { document.getElementById('update-message').style.borderColor = 'var(--red)'; return; }
+  document.getElementById('update-message').style.borderColor = '';
+  const btn = document.getElementById('btn-update');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  try {
+    const r = await fetch(apiBase() + '/admin/api/send-data-update', {
+      method: 'POST', headers: headers(), body: JSON.stringify({ message: msg }),
+    });
+    const d = await r.json();
+    if (d.sent > 0) {
+      showToast('Sent data update to ' + d.sent + ' customer(s)', 'success');
+      document.getElementById('update-message').value = '';
+    } else {
+      showToast('No active customers to notify', 'success');
+    }
+  } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  btn.disabled = false; btn.textContent = 'Send to All Customers';
 }
 
 // Auto-login if key saved

@@ -705,7 +705,7 @@ function showBankDetail(key) {
   if (!b) return;
   const confLabel = {high:'High confidence',medium:'Medium confidence',low:'Low confidence'}[b.confidence]||'Unknown';
   const confCls = {high:'conf-high',medium:'conf-medium',low:'conf-low'}[b.confidence]||'conf-low';
-  const isFree = b.tier === 'free';
+  const canView = isPro || b.tier === 'free';
   const yearMatch = (b.source||'').match(/(FY)?20\d{2}/g);
   const dataYear = yearMatch ? yearMatch[yearMatch.length-1] : 'N/A';
 
@@ -716,9 +716,9 @@ function showBankDetail(key) {
     <button class="close-btn" onclick="this.closest('.bank-modal-overlay').remove()">&times;</button>
     <h2>${b.name}</h2>
     <div class="sub">
-      <span class="conf ${confCls}"></span> ${confLabel} &middot; ${b.country} &middot; ${isFree ? 'Free tier' : 'Pro'} &middot; Data: ${dataYear}
+      <span class="conf ${confCls}"></span> ${confLabel} &middot; ${b.country} &middot; ${b.tier === 'free' ? 'Free tier' : 'Pro'} &middot; Data: ${dataYear}
     </div>
-    ${isFree ? `<div class="bank-detail-grid">
+    ${canView ? `<div class="bank-detail-grid">
       <div class="bank-detail-item"><div class="lbl">IRB Approach</div><div class="val">${b.irb_approach||'N/A'}</div></div>
       <div class="bank-detail-item"><div class="lbl">Cost / Income</div><div class="val">${b.cost_to_income ? (b.cost_to_income*100).toFixed(1)+'%' : 'N/A'}</div></div>
       <div class="bank-detail-item"><div class="lbl">Effective Tax Rate</div><div class="val">${b.effective_tax_rate ? (b.effective_tax_rate*100).toFixed(1)+'%' : 'N/A'}</div></div>

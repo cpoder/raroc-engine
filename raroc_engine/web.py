@@ -356,31 +356,30 @@ async def get_products():
 
 @app.get("/api/banks")
 async def get_banks():
-    """List available bank profiles. Premium banks show name/country only -- no risk data."""
+    """List available bank profiles with parameters.
+
+    All data is from public Pillar 3 regulatory filings.
+    Free-tier users can only use free banks for calculations;
+    Pro users can use all banks.
+    """
     result = []
     free_keys = get_free_bank_keys()
     for key, p in BANK_PROFILES.items():
-        is_free = key in free_keys
-        entry = {
+        result.append({
             "key": key,
             "name": p.name,
             "country": p.country,
             "confidence": p.confidence,
-            "tier": "free" if is_free else "premium",
-        }
-        # Only expose risk parameters for free banks
-        if is_free:
-            entry.update({
-                "irb_approach": p.irb_approach,
-                "cost_to_income": p.cost_to_income,
-                "effective_tax_rate": p.effective_tax_rate,
-                "avg_lgd_unsecured": p.avg_lgd_unsecured,
-                "avg_lgd_secured": p.avg_lgd_secured,
-                "funding_spread_bp": p.funding_spread_bp,
-                "source": p.source,
-                "notes": p.notes,
-            })
-        result.append(entry)
+            "tier": p.tier,
+            "irb_approach": p.irb_approach,
+            "cost_to_income": p.cost_to_income,
+            "effective_tax_rate": p.effective_tax_rate,
+            "avg_lgd_unsecured": p.avg_lgd_unsecured,
+            "avg_lgd_secured": p.avg_lgd_secured,
+            "funding_spread_bp": p.funding_spread_bp,
+            "source": p.source,
+            "notes": p.notes,
+        })
     return {
         "banks": result,
         "total": len(BANK_PROFILES),

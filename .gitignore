@@ -38,4 +38,3 @@ repository/rarocdb.*
 
 # Downloaded PDFs (working files)
 *.pdf
-tools/pdfs/

@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir \
 # Copy engine
 COPY raroc_engine/ /app/raroc_engine/
 COPY repository/ /app/repository/
-COPY serve.py run_raroc.py sample_deals.csv /app/
+COPY serve.py run_raroc.py sample_deals.csv METHODOLOGY.md /app/
 
 # Premium data (mounted or baked in)
 COPY premium_banks.json /app/premium_banks.json

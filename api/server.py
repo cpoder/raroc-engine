@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from .auth import get_storage, require_admin, require_api_key
+from .emails import send_welcome, send_renewal_reminder, send_data_update, send_payment_failed
 from .storage import JsonStorage
 
 app = FastAPI(title="OpenRAROC API", version="1.0.0")
@@ -152,6 +153,8 @@ async def checkout_success(session_id: str = "", storage: JsonStorage = Depends(
         )
 
     api_key = storage.add_key(customer.id)
+    if customer.email:
+        send_welcome(customer.email, api_key.key)
     return RedirectResponse(f"{WEBAPP_URL}?key={api_key.key}", status_code=303)
 
 
@@ -168,7 +171,9 @@ async def stripe_webhook(request: Request, storage: JsonStorage = Depends(get_st
     else:
         event = json.loads(body)
 
-    if event.get("type") == "checkout.session.completed":
+    event_type = event.get("type", "")
+
+    if event_type == "checkout.session.completed":
         session = event["data"]["object"]
         email = session.get("customer_email", "")
         stripe_cid = session.get("customer", "")
@@ -183,7 +188,15 @@ async def stripe_webhook(request: Request, storage: JsonStorage = Depends(get_st
                 stripe_customer_id=stripe_cid,
                 stripe_subscription_id=stripe_sid,
             )
-        storage.add_key(customer.id)
+        api_key = storage.add_key(customer.id)
+        if email:
+            send_welcome(email, api_key.key)
+
+    elif event_type == "invoice.payment_failed":
+        invoice = event["data"]["object"]
+        customer_email = invoice.get("customer_email", "")
+        if customer_email:
+            send_payment_failed(customer_email)
 
     return JSONResponse({"received": True})
 
@@ -238,6 +251,48 @@ async def admin_revoke_key(
     if not storage.revoke_key(key_str):
         raise HTTPException(404, "Key not found")
     return {"revoked": True}
+
+
+class DataUpdateRequest(BaseModel):
+    message: str = "Bank data has been updated with the latest Pillar 3 filings."
+
+
+@app.post("/admin/api/send-reminders")
+async def admin_send_reminders(
+    _admin: str = Depends(require_admin),
+    storage: JsonStorage = Depends(get_storage),
+):
+    """Send renewal reminders to customers with keys expiring in 30 or 7 days."""
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    sent = []
+
+    for days in [7, 30]:
+        for key, customer in storage.get_expiring_keys(within_days=days):
+            # Skip if already reminded today
+            if key.last_reminder_sent == today:
+                continue
+            if send_renewal_reminder(customer.email, days):
+                storage.mark_reminder_sent(key.key)
+                sent.append({"email": customer.email, "days_left": days})
+
+    return {"sent": len(sent), "reminders": sent}
+
+
+@app.post("/admin/api/send-data-update")
+async def admin_send_data_update(
+    req: DataUpdateRequest,
+    _admin: str = Depends(require_admin),
+    storage: JsonStorage = Depends(get_storage),
+):
+    """Send data update notification to all active Pro customers."""
+    customers = storage.get_active_customers()
+    sent = []
+    for customer in customers:
+        if send_data_update(customer.email, req.message):
+            sent.append(customer.email)
+
+    return {"sent": len(sent), "emails": sent}
 
 
 # ── Admin dashboard ──────────────────────────────────────────────

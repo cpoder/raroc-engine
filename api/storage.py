@@ -28,6 +28,7 @@ class APIKey(BaseModel):
     expires_at: str = ""
     active: bool = True
     last_used: str = ""
+    last_reminder_sent: str = ""
 
 
 class JsonStorage:
@@ -180,3 +181,44 @@ class JsonStorage:
             entry["keys"] = keys_by_customer.get(c.id, [])
             result.append(entry)
         return result
+
+    def get_expiring_keys(self, within_days: int) -> list[tuple[APIKey, Customer]]:
+        """Return active keys expiring within N days, with their customers."""
+        now = datetime.now(timezone.utc)
+        cutoff = now + timedelta(days=within_days)
+        keys = self.load_keys()
+        customers = {c.id: c for c in self.load_customers()}
+        results = []
+        for k in keys:
+            if not k.active or not k.expires_at:
+                continue
+            expires = datetime.fromisoformat(k.expires_at)
+            if now < expires <= cutoff:
+                customer = customers.get(k.customer_id)
+                if customer:
+                    results.append((k, customer))
+        return results
+
+    def mark_reminder_sent(self, key_str: str):
+        keys = self.load_keys()
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        for k in keys:
+            if k.key == key_str:
+                k.last_reminder_sent = today
+                self.save_keys(keys)
+                return
+
+    def get_active_customers(self) -> list[Customer]:
+        """Return customers who have at least one active, non-expired key."""
+        now = datetime.now(timezone.utc)
+        keys = self.load_keys()
+        active_customer_ids = set()
+        for k in keys:
+            if not k.active:
+                continue
+            if k.expires_at:
+                expires = datetime.fromisoformat(k.expires_at)
+                if expires < now:
+                    continue
+            active_customer_ids.add(k.customer_id)
+        return [c for c in self.load_customers() if c.id in active_customer_ids]

@@ -34,6 +34,7 @@ services:
       - STRIPE_PRICE_ID=${STRIPE_PRICE_ID:-}
       - WEBAPP_URL=${WEBAPP_URL:-https://openraroc.com}
       - API_URL=${API_URL:-https://api.openraroc.com}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
       - RAROC_DATA_DIR=/app/data
 
 volumes:

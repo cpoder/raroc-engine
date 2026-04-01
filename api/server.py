@@ -563,6 +563,7 @@ function renderAnalyticsChart(byDay) {
       <div style="font-size:10px;color:var(--text);font-weight:600;">${total||''}</div>
     </div>`;
   }).join('');
+}
 
 function fmtDate(iso) {
   if (!iso) return '-';

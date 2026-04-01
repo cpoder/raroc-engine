@@ -6,7 +6,7 @@ import csv
 from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Optional, List
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, Header, HTTPException, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
@@ -20,6 +20,7 @@ from .models import (
 from .repository import Repository
 from .calculator import RAROCCalculator
 from .analytics import track
+from . import benchmarks
 
 app = FastAPI(title="RAROC Engine", version="1.0.0")
 
@@ -255,11 +256,18 @@ async def methodology():
 
 
 @app.post("/api/calculate")
-async def calculate(req: DealRequest):
+async def calculate(req: DealRequest, x_benchmark_consent: str = Header(default="")):
     try:
         inp = req.to_engine_input()
         out = _calc.calculate(inp)
         track("calculate", product=req.product_type, rating=req.rating, bank=req.bank)
+        if x_benchmark_consent == "true":
+            benchmarks.record(
+                product_type=inp.product_type, rating=inp.rating,
+                maturity_months=inp.residual_maturity, spread=inp.spread,
+                commitment_fee=inp.commitment_fee, grr=inp.global_grr,
+                confirmed=inp.confirmed, raroc=out.raroc, exposure=out.exposure,
+            )
         return {
             "input": asdict(inp),
             "output": asdict(out),
@@ -349,7 +357,7 @@ async def sensitivity(req: SensitivityRequest):
 
 
 @app.post("/api/portfolio")
-async def portfolio(file: UploadFile = File(...)):
+async def portfolio(file: UploadFile = File(...), x_benchmark_consent: str = Header(default="")):
     """Upload a CSV portfolio and get RAROC for every facility."""
     try:
         content = await file.read()
@@ -392,6 +400,16 @@ async def portfolio(file: UploadFile = File(...)):
             )
 
         track("portfolio_upload", facilities=len(valid), errors=len(facilities) - len(valid))
+        if x_benchmark_consent == "true":
+            for f in valid:
+                inp = f["input"]
+                out = f["output"]
+                benchmarks.record(
+                    product_type=inp["product_type"], rating=inp["rating"],
+                    maturity_months=inp["residual_maturity"], spread=inp["spread"],
+                    commitment_fee=inp["commitment_fee"], grr=inp["global_grr"],
+                    confirmed=inp["confirmed"], raroc=out["raroc"], exposure=out["exposure"],
+                )
 
         return {
             "facilities": facilities,
@@ -800,6 +818,18 @@ async def get_analytics(days: int = 30):
     """Usage analytics. No auth required — data is aggregate only, no PII."""
     from .analytics import get_stats
     return get_stats(days)
+
+
+@app.get("/api/benchmarks")
+async def get_benchmarks_endpoint(
+    product: str = "",
+    rating: str = "",
+    maturity_min: int = 0,
+    maturity_max: int = 999,
+):
+    """Anonymous market benchmarks from consenting users."""
+    track("benchmark_query", product=product, rating=rating)
+    return benchmarks.get_benchmarks(product, rating, maturity_min, maturity_max)
 
 
 def run_server(host: str = "0.0.0.0", port: int = 8000):

@@ -13,9 +13,11 @@ services:
     volumes:
       - ../premium_banks.json:/app/premium_banks.json:ro
       - web_analytics:/app/analytics
+      - web_benchmarks:/app/benchmarks
     environment:
       - RAROC_PREMIUM_BANKS=/app/premium_banks.json
       - RAROC_ANALYTICS_DIR=/app/analytics
+      - RAROC_BENCHMARKS_DIR=/app/benchmarks
 
   # Premium data API (api.openraroc.com)
   api:
@@ -42,3 +44,4 @@ services:
 volumes:
   api_data:
   web_analytics:
+  web_benchmarks:

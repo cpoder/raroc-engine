@@ -534,7 +534,8 @@ function getAvailableBanks() {
 }
 
 async function api(path, body) {
-  const opts = body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : {};
+  const bh = (localStorage.getItem('raroc_benchmark_consent')==='true') ? {'X-Benchmark-Consent':'true'} : {};
+  const opts = body ? {method:'POST', headers:{'Content-Type':'application/json', ...bh}, body:JSON.stringify(body)} : {headers:bh};
   const r = await fetch('/api/'+path, opts);
   if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.detail||'Error'); }
   return r.json();
@@ -579,7 +580,8 @@ function handleFileDrop(e) { handleFileUpload(e.dataTransfer.files[0]); }
 async function handleFileUpload(file) {
   if (!file) return;
   const form = new FormData(); form.append('file', file);
-  const r = await fetch('/api/portfolio', {method:'POST',body:form});
+  const bh = (localStorage.getItem('raroc_benchmark_consent')==='true') ? {'X-Benchmark-Consent':'true'} : {};
+  const r = await fetch('/api/portfolio', {method:'POST',body:form,headers:bh});
   if (!r.ok) { alert('Error processing file'); return; }
   const data = await r.json();
   portfolio = [];
@@ -1167,7 +1169,58 @@ function showTab(name) {
   event.target.classList.add('active');
 }
 
+// ── Benchmarks ─────────────────────────────────────────
+let benchmarkConsent = localStorage.getItem('raroc_benchmark_consent') === 'true';
+
+function initBenchmarkBanner() {
+  if (localStorage.getItem('raroc_benchmark_dismissed')) return;
+  document.getElementById('benchmark-banner').style.display = 'flex';
+}
+
+function acceptBenchmarks() {
+  benchmarkConsent = true;
+  localStorage.setItem('raroc_benchmark_consent', 'true');
+  localStorage.setItem('raroc_benchmark_dismissed', '1');
+  document.getElementById('benchmark-banner').style.display = 'none';
+}
+
+function dismissBenchmarks() {
+  localStorage.setItem('raroc_benchmark_dismissed', '1');
+  document.getElementById('benchmark-banner').style.display = 'none';
+}
+
+function getBenchmarkHeaders() {
+  return benchmarkConsent ? {'X-Benchmark-Consent': 'true'} : {};
+}
+
+async function showBenchmarkBadge(rating, product, spreadBp) {
+  try {
+    const r = await fetch(`/api/benchmarks?rating=${encodeURIComponent(rating)}&product=${encodeURIComponent(product)}`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (!d.data_points || d.data_points < 5) return null;
+    const pctl = Math.round((d.spread_bp.p50 > 0) ?
+      (spreadBp <= d.spread_bp.min ? 1 : spreadBp >= d.spread_bp.max ? 99 :
+       ((spreadBp - d.spread_bp.min) / (d.spread_bp.max - d.spread_bp.min) * 100)) : 50);
+    return {percentile: pctl, median: d.spread_bp.p50, dataPoints: d.data_points};
+  } catch(e) { return null; }
+}
+
 init();
+setTimeout(initBenchmarkBanner, 2000);
 </script>
+
+<!-- Benchmark consent banner -->
+<div id="benchmark-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:14px 24px;align-items:center;justify-content:center;gap:16px;z-index:100;flex-wrap:wrap;">
+  <div style="flex:1;min-width:280px;">
+    <strong style="font-size:13px;">Help build market benchmarks</strong>
+    <span style="font-size:12px;color:var(--text3);"> &mdash; Contribute anonymized pricing data to see how your spreads compare. No company names or amounts are stored.</span>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button onclick="acceptBenchmarks()" style="padding:7px 18px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Contribute &amp; compare</button>
+    <button onclick="dismissBenchmarks()" style="padding:7px 18px;background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer;">Not now</button>
+  </div>
+</div>
+
 </body>
 </html>

@@ -136,11 +136,15 @@ def optimize_portfolio(
     num_vars = num_x + num_y
 
     # Cost vector: minimize Σ min_spread[i,j] * ead[i] * x[i,j]
-    # y variables have zero cost
+    # Small penalty on y variables to force y[j]=0 when bank j is unused
+    # (without this, solver sets all y[j]=1 trivially satisfying min_banks)
     c = np.zeros(num_vars)
     for i in range(n):
         for j in range(m):
             c[i * m + j] = min_spread[i, j] * ead[i]
+    y_penalty = max(c.max() * 1e-6, 1e-6)
+    for j in range(m):
+        c[num_x + j] = y_penalty
 
     # Integrality: all binary
     integrality = np.ones(num_vars, dtype=int)
@@ -165,40 +169,51 @@ def optimize_portfolio(
 
     bounds = Bounds(lb=lb, ub=ub)
 
-    constraints = []
+    # Build all constraints as a single sparse matrix for reliability
+    A_rows, A_cols, A_vals = [], [], []
+    con_lb, con_ub = [], []
+    row_idx = 0
 
     # Constraint 1: each facility to exactly one bank
     # For each i: Σ_j x[i,j] = 1
     for i in range(n):
-        row = np.zeros(num_vars)
         for j in range(m):
-            row[i * m + j] = 1.0
-        constraints.append(LinearConstraint(row, lb=1.0, ub=1.0))
+            A_rows.append(row_idx); A_cols.append(i * m + j); A_vals.append(1.0)
+        con_lb.append(1.0); con_ub.append(1.0)
+        row_idx += 1
 
     # Constraint 2: max exposure per bank
     # For each j: Σ_i ead[i] * x[i,j] ≤ max_bank_pct * total_ead
     max_bank_exp = max_bank_pct * total_ead
     for j in range(m):
-        row = np.zeros(num_vars)
         for i in range(n):
-            row[i * m + j] = ead[i]
-        constraints.append(LinearConstraint(row, lb=0, ub=max_bank_exp))
+            A_rows.append(row_idx); A_cols.append(i * m + j); A_vals.append(ead[i])
+        con_lb.append(0.0); con_ub.append(max_bank_exp)
+        row_idx += 1
 
-    # Constraint 3: link x[i,j] ≤ y[j] (bank j is used if any facility assigned)
+    # Constraint 3: link x[i,j] ≤ y[j]
     # For each i, j: x[i,j] - y[j] ≤ 0
     for i in range(n):
         for j in range(m):
-            row = np.zeros(num_vars)
-            row[i * m + j] = 1.0
-            row[num_x + j] = -1.0
-            constraints.append(LinearConstraint(row, lb=-np.inf, ub=0.0))
+            A_rows.append(row_idx); A_cols.append(i * m + j); A_vals.append(1.0)
+            A_rows.append(row_idx); A_cols.append(num_x + j); A_vals.append(-1.0)
+            con_lb.append(-np.inf); con_ub.append(0.0)
+            row_idx += 1
 
-    # Constraint 3b: min banks
-    # Σ_j y[j] ≥ min_banks
-    row_minb = np.zeros(num_vars)
+    # Constraint 3b: force y[j]=0 when bank j is unused: y[j] ≤ Σ_i x[i,j]
+    # Rewritten as: Σ_i x[i,j] - y[j] ≥ 0
     for j in range(m):
-        row_minb[num_x + j] = 1.0
-    constraints.append(LinearConstraint(row_minb, lb=float(min_banks), ub=np.inf))
+        for i in range(n):
+            A_rows.append(row_idx); A_cols.append(i * m + j); A_vals.append(1.0)
+        A_rows.append(row_idx); A_cols.append(num_x + j); A_vals.append(-1.0)
+        con_lb.append(0.0); con_ub.append(np.inf)
+        row_idx += 1
+
+    # Constraint 3c: min banks — Σ_j y[j] ≥ min_banks
+    for j in range(m):
+        A_rows.append(row_idx); A_cols.append(num_x + j); A_vals.append(1.0)
+    con_lb.append(float(min_banks)); con_ub.append(np.inf)
+    row_idx += 1
 
     # Constraint 4: max exposure per region
     region_to_banks: dict[str, list[int]] = {}
@@ -208,11 +223,14 @@ def optimize_portfolio(
 
     max_region_exp = max_region_pct * total_ead
     for region, bank_indices in region_to_banks.items():
-        row = np.zeros(num_vars)
         for j in bank_indices:
             for i in range(n):
-                row[i * m + j] = ead[i]
-        constraints.append(LinearConstraint(row, lb=0, ub=max_region_exp))
+                A_rows.append(row_idx); A_cols.append(i * m + j); A_vals.append(ead[i])
+        con_lb.append(0.0); con_ub.append(max_region_exp)
+        row_idx += 1
+
+    A = csc_matrix((A_vals, (A_rows, A_cols)), shape=(row_idx, num_vars))
+    constraints = LinearConstraint(A, lb=con_lb, ub=con_ub)
 
     # ── Step 3: Solve ────────────────────────────────────────────
 

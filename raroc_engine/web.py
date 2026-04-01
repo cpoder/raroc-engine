@@ -147,6 +147,11 @@ class ReportRequest(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────
 
 @app.get("/")
+async def landing():
+    return FileResponse(os.path.join(STATIC_DIR, "landing.html"))
+
+
+@app.get("/app")
 async def index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 

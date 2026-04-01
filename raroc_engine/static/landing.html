@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenRAROC - See your credit through your banker's eyes</title>
+<meta name="description" content="Compare how 59 banks price your credit facilities. Upload your portfolio, find the cheapest bank allocation, and generate reports for your CFO.">
+<style>
+:root {
+  --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
+  --border: #475569; --text: #f1f5f9; --text2: #cbd5e1; --text3: #94a3b8;
+  --accent: #3b82f6; --accent2: #2563eb; --green: #22c55e; --red: #ef4444;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Nav */
+nav { max-width: 1100px; margin: 0 auto; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; }
+nav .logo { font-size: 20px; font-weight: 700; color: var(--text); }
+nav .logo span { color: var(--accent); }
+nav .links { display: flex; gap: 24px; align-items: center; font-size: 14px; }
+nav .links a { color: var(--text3); }
+nav .links a:hover { color: var(--text); text-decoration: none; }
+.btn { display: inline-block; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; text-decoration: none !important; cursor: pointer; border: none; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-outline { border: 1px solid var(--border); color: var(--text); background: transparent; }
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.btn-lg { padding: 14px 36px; font-size: 16px; border-radius: 10px; }
+
+/* Hero */
+.hero { max-width: 1100px; margin: 0 auto; padding: 60px 24px 40px; text-align: center; }
+.hero h1 { font-size: 48px; font-weight: 800; line-height: 1.15; margin-bottom: 20px; letter-spacing: -0.02em; }
+.hero h1 .highlight { background: linear-gradient(135deg, var(--accent), #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.hero p { font-size: 20px; color: var(--text2); max-width: 620px; margin: 0 auto 32px; }
+.hero-ctas { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+/* Stats bar */
+.stats-bar { max-width: 700px; margin: 40px auto 0; display: flex; justify-content: center; gap: 40px; padding: 20px; }
+.stats-bar .stat { text-align: center; }
+.stats-bar .stat .num { font-size: 28px; font-weight: 800; color: var(--accent); }
+.stats-bar .stat .label { font-size: 13px; color: var(--text3); }
+
+/* Section */
+.section { max-width: 1100px; margin: 0 auto; padding: 60px 24px; }
+.section-title { font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 12px; }
+.section-sub { font-size: 16px; color: var(--text3); text-align: center; max-width: 600px; margin: 0 auto 40px; }
+
+/* Feature cards */
+.features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 768px) { .features { grid-template-columns: 1fr; } }
+.feature-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; transition: border-color 0.2s; }
+.feature-card:hover { border-color: var(--accent); }
+.feature-icon { font-size: 32px; margin-bottom: 14px; }
+.feature-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.feature-card p { font-size: 14px; color: var(--text3); line-height: 1.6; }
+
+/* Steps */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; counter-reset: step; }
+@media (max-width: 768px) { .steps { grid-template-columns: 1fr; } }
+.step { text-align: center; padding: 24px; position: relative; }
+.step::before { counter-increment: step; content: counter(step); display: block; width: 44px; height: 44px; line-height: 44px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; font-size: 18px; margin: 0 auto 16px; }
+.step h3 { font-size: 16px; margin-bottom: 6px; }
+.step p { font-size: 13px; color: var(--text3); }
+
+/* Banks section */
+.bank-regions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 20px; }
+.region-tag { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 6px 16px; font-size: 13px; color: var(--text2); }
+
+/* Pricing */
+.pricing { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 700px; margin: 0 auto; }
+@media (max-width: 600px) { .pricing { grid-template-columns: 1fr; } }
+.price-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 32px; text-align: center; }
+.price-card.featured { border-color: var(--accent); position: relative; }
+.price-card.featured::before { content: "MOST POPULAR"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; padding: 3px 14px; border-radius: 10px; letter-spacing: 0.5px; }
+.price-card h3 { font-size: 20px; margin-bottom: 4px; }
+.price-amount { font-size: 40px; font-weight: 800; margin: 12px 0 4px; }
+.price-amount span { font-size: 16px; font-weight: 400; color: var(--text3); }
+.price-period { font-size: 13px; color: var(--text3); margin-bottom: 20px; }
+.price-features { list-style: none; text-align: left; margin-bottom: 24px; }
+.price-features li { padding: 6px 0; font-size: 14px; color: var(--text2); border-bottom: 1px solid rgba(255,255,255,0.05); }
+.price-features li::before { content: "\2713 "; color: var(--green); font-weight: 700; margin-right: 6px; }
+
+/* Example */
+.example { background: var(--surface); border-radius: 14px; padding: 32px; max-width: 700px; margin: 0 auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.8; color: var(--text3); overflow-x: auto; }
+.example .highlight-row { color: var(--text); }
+.example .green { color: var(--green); }
+.example .red { color: var(--red); }
+.example .accent { color: var(--accent); }
+
+/* Footer */
+footer { border-top: 1px solid var(--border); padding: 32px 24px; text-align: center; color: var(--text3); font-size: 13px; }
+footer a { color: var(--text3); }
+footer a:hover { color: var(--accent); }
+footer .links { display: flex; gap: 24px; justify-content: center; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo"><span>Open</span>RAROC</div>
+  <div class="links">
+    <a href="/methodology">Methodology</a>
+    <a href="https://github.com/cpoder/raroc-engine">GitHub</a>
+    <a href="/app" class="btn btn-primary" style="padding:8px 20px;">Open App</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <h1>See your credit through<br>your <span class="highlight">banker's eyes</span></h1>
+  <p>Upload your portfolio. Compare how 59 banks price your facilities. Find out who's overcharging you.</p>
+  <div class="hero-ctas">
+    <a href="/app" class="btn btn-primary btn-lg">Try it free</a>
+    <a href="#pricing" class="btn btn-outline btn-lg">See pricing</a>
+  </div>
+  <div class="stats-bar">
+    <div class="stat"><div class="num">59</div><div class="label">Banks</div></div>
+    <div class="stat"><div class="num">26</div><div class="label">Countries</div></div>
+    <div class="stat"><div class="num">100%</div><div class="label">Pillar 3 data</div></div>
+  </div>
+</div>
+
+<!-- Example -->
+<div class="section" style="padding-top:20px;">
+  <div class="example">
+    <div class="accent">BBB+ rated, 5-year term loan, EUR 25M, 150bp spread, 40% collateral</div>
+    <br>
+    <div class="highlight-row">Bank                     RAROC      Min Spread</div>
+    <div><span class="green">HSBC                    12.25%         147bp</span></div>
+    <div><span class="green">Credit Agricole         11.86%         152bp</span></div>
+    <div>Barclays                11.64%         154bp</div>
+    <div>BNP Paribas             10.96%         164bp</div>
+    <div><span class="red">Deutsche Bank            8.51%         202bp</span></div>
+    <br>
+    <div class="accent">Same deal. 55bp spread difference between cheapest and most expensive.</div>
+  </div>
+</div>
+
+<!-- Features -->
+<div class="section">
+  <div class="section-title">What you get</div>
+  <div class="section-sub">Everything a corporate treasurer needs to understand and negotiate bank pricing.</div>
+  <div class="features">
+    <div class="feature-card">
+      <div class="feature-icon">&#x2194;</div>
+      <h3>Bank Comparison</h3>
+      <p>Same deal, different pricing. See how 59 banks evaluate your facilities using their actual cost structure, tax rate, and risk models from public Pillar 3 filings.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#x2699;</div>
+      <h3>Portfolio Optimizer</h3>
+      <p>Find the cheapest allocation. Our optimizer assigns your facilities across banks to minimize total cost, respecting your concentration and diversification limits.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">&#x1F4CA;</div>
+      <h3>PDF Reports</h3>
+      <p>A report your CFO will love. Branded credit profile reports with bank rankings, facility breakdowns, and optimization recommendations.</p>
+    </div>
+  </div>
+</div>
+
+<!-- How it works -->
+<div class="section">
+  <div class="section-title">How it works</div>
+  <div class="section-sub">Three steps. Two minutes. Actionable insight.</div>
+  <div class="steps">
+    <div class="step">
+      <h3>Upload your portfolio</h3>
+      <p>CSV or manual entry. Term loans, revolvers, guarantees, derivatives &mdash; we handle 25+ product types.</p>
+    </div>
+    <div class="step">
+      <h3>Compare and optimize</h3>
+      <p>See RAROC across banks. Run the optimizer. Find the minimum spread each bank needs for your target return.</p>
+    </div>
+    <div class="step">
+      <h3>Download your report</h3>
+      <p>Get a branded PDF with bank rankings, facility breakdowns, and savings recommendations. Ready for your board.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Banks -->
+<div class="section" style="text-align:center;">
+  <div class="section-title">59 banks. 26 countries.</div>
+  <div class="section-sub">Every data point extracted from actual regulatory filings. Not estimates.</div>
+  <div class="bank-regions">
+    <span class="region-tag">France (6)</span>
+    <span class="region-tag">United Kingdom (5)</span>
+    <span class="region-tag">United States (7)</span>
+    <span class="region-tag">Germany (2)</span>
+    <span class="region-tag">Spain (3)</span>
+    <span class="region-tag">Italy (2)</span>
+    <span class="region-tag">Netherlands (3)</span>
+    <span class="region-tag">Nordics (5)</span>
+    <span class="region-tag">Japan (3)</span>
+    <span class="region-tag">Australia (4)</span>
+    <span class="region-tag">Canada (3)</span>
+    <span class="region-tag">China (3)</span>
+    <span class="region-tag">India (2)</span>
+    <span class="region-tag">South Korea (2)</span>
+    <span class="region-tag">Singapore</span>
+    <span class="region-tag">Brazil</span>
+    <span class="region-tag">Colombia</span>
+    <span class="region-tag">UAE</span>
+    <span class="region-tag">Qatar</span>
+    <span class="region-tag">Poland</span>
+    <span class="region-tag">Austria</span>
+    <span class="region-tag">Switzerland</span>
+    <span class="region-tag">Belgium</span>
+  </div>
+  <p style="margin-top:20px;font-size:13px;color:var(--text3);">Data sources: BIS CR6 tables, Pillar 3 disclosures, annual reports. Updated annually.</p>
+</div>
+
+<!-- Pricing -->
+<div class="section" id="pricing">
+  <div class="section-title">Pricing</div>
+  <div class="section-sub">Start free. Upgrade when you need all 59 banks.</div>
+  <div class="pricing">
+    <div class="price-card">
+      <h3>Free</h3>
+      <div class="price-amount">EUR 0</div>
+      <div class="price-period">forever</div>
+      <ul class="price-features">
+        <li>4 banks (BNP Paribas, HSBC, Deutsche Bank, JP Morgan)</li>
+        <li>Full RAROC calculator</li>
+        <li>Reverse solver</li>
+        <li>Sensitivity analysis</li>
+        <li>Open source engine</li>
+      </ul>
+      <a href="/app" class="btn btn-outline" style="width:100%;">Start free</a>
+    </div>
+    <div class="price-card featured">
+      <h3>Pro</h3>
+      <div class="price-amount">EUR 490 <span>/ year</span></div>
+      <div class="price-period">per company</div>
+      <ul class="price-features">
+        <li>All 59 banks across 26 countries</li>
+        <li>Portfolio optimizer</li>
+        <li>PDF credit profile reports</li>
+        <li>API + CLI + MCP access</li>
+        <li>Annual data refresh</li>
+        <li>Priority support</li>
+      </ul>
+      <a href="/app" class="btn btn-primary" style="width:100%;" onclick="localStorage.setItem('show_pro_modal','1')">Go Pro</a>
+    </div>
+  </div>
+</div>
+
+<!-- Methodology -->
+<div class="section" style="text-align:center;">
+  <div class="section-title">Basel III. No black box.</div>
+  <div class="section-sub">Every formula is documented. Every data source is cited. Read the full methodology or inspect the open source code.</div>
+  <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+    <a href="/methodology" class="btn btn-outline">Read the methodology</a>
+    <a href="https://github.com/cpoder/raroc-engine" class="btn btn-outline">View source on GitHub</a>
+  </div>
+</div>
+
+<!-- Final CTA -->
+<div class="section" style="text-align:center;padding-bottom:80px;">
+  <div class="section-title">Ready to see your portfolio?</div>
+  <p style="color:var(--text3);font-size:16px;margin-bottom:24px;">Upload a CSV. Get results in seconds. No signup required.</p>
+  <a href="/app" class="btn btn-primary btn-lg">Open the calculator</a>
+</div>
+
+<footer>
+  <div class="links">
+    <a href="/app">App</a>
+    <a href="/methodology">Methodology</a>
+    <a href="https://github.com/cpoder/raroc-engine">GitHub</a>
+  </div>
+  <div>OpenRAROC &mdash; Bank data from public Pillar 3 CR6 regulatory filings</div>
+</footer>
+
+</body>
+</html>

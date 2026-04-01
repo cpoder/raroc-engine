@@ -155,7 +155,7 @@ async def checkout_success(session_id: str = "", storage: JsonStorage = Depends(
     api_key = storage.add_key(customer.id)
     if customer.email:
         send_welcome(customer.email, api_key.key)
-    return RedirectResponse(f"{WEBAPP_URL}?key={api_key.key}", status_code=303)
+    return RedirectResponse(f"{WEBAPP_URL}/app?key={api_key.key}", status_code=303)
 
 
 @app.post("/webhook/stripe")

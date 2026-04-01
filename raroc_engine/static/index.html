@@ -183,6 +183,7 @@ header .sub { color: #94a3b8; font-size: 13px; }
   <button onclick="showTab('compare')">Bank Comparison</button>
   <button onclick="showTab('solver')">Reverse Solver</button>
   <button onclick="showTab('sensitivity')">Sensitivity</button>
+  <button onclick="showTab('optimize')">Optimize</button>
   <button onclick="showTab('settings')">Settings</button>
 </div>
 
@@ -345,6 +346,71 @@ header .sub { color: #94a3b8; font-size: 13px; }
   <div class="card" id="sens-result" style="display:none;">
     <h3 id="sens-title"></h3>
     <div id="sens-chart" class="chart-bars"></div>
+  </div>
+</div>
+
+<!-- ═══ OPTIMIZE TAB ═══ -->
+<div id="tab-optimize" class="tab-content">
+  <div class="card">
+    <h2>Portfolio Optimization</h2>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:14px;" id="opt-status">Upload a portfolio first, then optimize the allocation across banks to minimize your total borrowing cost.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div class="form-group input-suffix"><label>Max per Bank</label><input type="number" id="opt-max-bank" value="40" step="5" min="10" max="100"><span class="suffix">%</span></div>
+      <div class="form-group input-suffix"><label>Min Banks</label><input type="number" id="opt-min-banks" value="2" step="1" min="1" max="20"><span class="suffix"></span></div>
+      <div class="form-group input-suffix"><label>Max per Region</label><input type="number" id="opt-max-region" value="60" step="5" min="10" max="100"><span class="suffix">%</span></div>
+      <div class="form-group input-suffix"><label>Target RAROC</label><input type="number" id="opt-target" value="12" step="1" min="1" max="30"><span class="suffix">%</span></div>
+    </div>
+
+    <div id="opt-bank-checkboxes" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
+
+    <div id="opt-locks" style="margin-bottom:14px;"></div>
+
+    <button class="btn btn-primary" style="width:auto;" onclick="runOptimization()" id="btn-optimize" disabled>Run Optimization</button>
+    <span id="opt-spinner" style="display:none;color:var(--text3);font-size:12px;margin-left:12px;">Computing optimal allocation...</span>
+  </div>
+
+  <div id="opt-results" style="display:none;">
+    <div class="card">
+      <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:140px;background:var(--bg);border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Min Spread Cost</div>
+          <div id="opt-cost" style="font-size:22px;font-weight:700;"></div>
+        </div>
+        <div style="flex:1;min-width:140px;background:var(--bg);border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">vs Current Spread</div>
+          <div id="opt-saving" style="font-size:22px;font-weight:700;"></div>
+        </div>
+        <div style="flex:1;min-width:140px;background:var(--bg);border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Banks Used</div>
+          <div id="opt-banks-used" style="font-size:22px;font-weight:700;color:var(--accent);"></div>
+        </div>
+      </div>
+
+      <h3 style="margin-bottom:10px;">Recommended Allocation</h3>
+      <div style="overflow-x:auto;">
+        <table class="ptable">
+          <thead><tr>
+            <th>Facility</th><th>Assigned Bank</th><th>Country</th>
+            <th class="num">Exposure</th>
+            <th class="num">Min Spread</th><th class="num">Current Spread</th><th class="num">Delta</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="opt-assign-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:10px;">Bank Allocation</h3>
+      <div id="opt-alloc-chart" class="chart-bars" style="margin-bottom:12px;"></div>
+      <div style="overflow-x:auto;">
+        <table class="ptable">
+          <thead><tr><th>Bank</th><th>Region</th><th class="num">Exposure</th><th class="num">Share</th><th class="num">Facilities</th></tr></thead>
+          <tbody id="opt-alloc-tbody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -573,12 +639,14 @@ function renderPortfolio() {
     document.getElementById('compare-status').textContent = 'Upload a portfolio first to enable comparison.';
     document.getElementById('btn-compare').disabled = true;
     updateFacilitySelectors();
+    renderOptimizeTab();
     return;
   }
   document.getElementById('portfolio-empty').style.display = 'none';
   document.getElementById('portfolio-loaded').style.display = 'block';
   document.getElementById('compare-status').textContent = `${portfolioOutputs.length} facilities loaded. Select banks and compare.`;
   document.getElementById('btn-compare').disabled = false;
+  renderOptimizeTab();
 
   const totals = {exposure:0, fpe:0, revenue:0, cost:0, el:0};
   portfolioOutputs.forEach(f => { const o=f.output; totals.exposure+=o.exposure; totals.fpe+=o.fpe; totals.revenue+=o.revenue; totals.cost+=o.cost; totals.el+=o.average_loss; });
@@ -887,6 +955,137 @@ async function runSensitivity() {
       <div class="chart-val" style="color:${color}">${(p.raroc*100).toFixed(2)}%</div>
     </div>`;
   }).join('');
+}
+
+// ── Optimize ───────────────────────────────────────────
+function renderOptimizeTab() {
+  const available = getAvailableBanks();
+  const hasPortfolio = portfolio.length > 0;
+  document.getElementById('btn-optimize').disabled = !hasPortfolio;
+  document.getElementById('opt-status').textContent = hasPortfolio
+    ? `${portfolio.length} facilities loaded. Select banks and constraints, then run optimization.`
+    : 'Upload a portfolio first, then optimize the allocation across banks.';
+
+  // Bank checkboxes (simple, no regions — already grouped in Compare)
+  const confClass = {high:'conf-high',medium:'conf-medium',low:'conf-low'};
+  document.getElementById('opt-bank-checkboxes').innerHTML = available.map(b =>
+    `<label style="display:flex;align-items:center;gap:4px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;">
+      <input type="checkbox" value="${b.key}" checked class="opt-bank-cb" style="width:13px;height:13px;">
+      <span class="conf ${confClass[b.confidence]||'conf-low'}"></span>
+      ${b.name}
+    </label>`
+  ).join('');
+
+  // Lock controls
+  if (hasPortfolio) {
+    document.getElementById('opt-locks').innerHTML = `
+      <div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600;">Lock facilities to specific banks (optional):</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${portfolio.map((f,i) => `<div style="display:flex;align-items:center;gap:4px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:11px;">
+          <span>${portfolioOutputs[i]?.name || 'Facility '+(i+1)}</span>
+          <select id="opt-lock-${i}" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;font-size:11px;padding:2px 4px;">
+            <option value="">Any bank</option>
+            ${available.map(b => `<option value="${b.key}">${b.name}</option>`).join('')}
+          </select>
+        </div>`).join('')}
+      </div>`;
+  }
+}
+
+async function runOptimization() {
+  const btn = document.getElementById('btn-optimize');
+  const spinner = document.getElementById('opt-spinner');
+  btn.disabled = true;
+  spinner.style.display = 'inline';
+
+  const checked = [...document.querySelectorAll('.opt-bank-cb:checked')].map(cb=>cb.value);
+  if (!checked.length || !portfolio.length) { btn.disabled = false; spinner.style.display = 'none'; return; }
+
+  const facilities = portfolio.map(inp => buildDealFromInput(inp));
+  const maxBank = parseFloat(document.getElementById('opt-max-bank').value) / 100;
+  const minBanks = parseInt(document.getElementById('opt-min-banks').value);
+  const maxRegion = parseFloat(document.getElementById('opt-max-region').value) / 100;
+  const targetRaroc = parseFloat(document.getElementById('opt-target').value) / 100;
+
+  // Gather locks
+  const locked = {};
+  portfolio.forEach((_, i) => {
+    const sel = document.getElementById('opt-lock-' + i);
+    if (sel && sel.value) locked[i] = sel.value;
+  });
+
+  try {
+    const data = await api('optimize', {
+      facilities, bank_keys: checked,
+      max_bank_pct: maxBank, min_banks: minBanks, max_region_pct: maxRegion,
+      target_raroc: targetRaroc, locked: Object.keys(locked).length ? locked : null,
+    });
+
+    if (data.status !== 'optimal') {
+      alert(data.error || 'Optimization failed. Try relaxing constraints.');
+      btn.disabled = false; spinner.style.display = 'none';
+      return;
+    }
+
+    renderOptResults(data);
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+  btn.disabled = false;
+  spinner.style.display = 'none';
+}
+
+function renderOptResults(data) {
+  document.getElementById('opt-results').style.display = 'block';
+  const s = data.summary;
+
+  document.getElementById('opt-cost').textContent = fmt(s.total_min_spread_cost) + ' EUR';
+  const savColor = s.saving >= 0 ? 'var(--green)' : 'var(--red)';
+  const savSign = s.saving >= 0 ? '-' : '+';
+  document.getElementById('opt-saving').innerHTML = `<span style="color:${savColor}">${savSign}${fmt(Math.abs(s.saving))} EUR (${Math.abs(s.saving_pct).toFixed(1)}%)</span>`;
+  document.getElementById('opt-banks-used').textContent = s.banks_used;
+
+  // Assignment table
+  document.getElementById('opt-assign-tbody').innerHTML = data.assignments.map(a => {
+    const delta = a.saving_bp;
+    const deltaColor = delta >= 0 ? 'var(--green)' : 'var(--red)';
+    const deltaSign = delta >= 0 ? '-' : '+';
+    return `<tr>
+      <td><strong>${a.facility}</strong></td>
+      <td>${a.bank_name}</td>
+      <td>${a.country}</td>
+      <td class="num">${fmt(a.exposure)}</td>
+      <td class="num" style="font-weight:600;">${a.min_spread_bp.toFixed(0)} bp</td>
+      <td class="num">${a.current_spread_bp.toFixed(0)} bp</td>
+      <td class="num" style="color:${deltaColor}">${deltaSign}${Math.abs(delta).toFixed(0)} bp</td>
+      <td>${a.locked ? '<span style="color:var(--text3);font-size:10px;">LOCKED</span>' : ''}</td>
+    </tr>`;
+  }).join('');
+
+  // Allocation chart
+  const allocs = s.bank_allocations;
+  const maxExp = Math.max(...allocs.map(a => a.exposure));
+  const limit = data.constraints.max_bank_pct * 100;
+
+  document.getElementById('opt-alloc-chart').innerHTML = allocs.map(a => {
+    const pct = Math.max((a.exposure / maxExp) * 100, 2);
+    const overLimit = a.pct > limit;
+    const color = overLimit ? 'var(--red)' : 'var(--accent)';
+    return `<div class="chart-row">
+      <div class="chart-label">${a.bank_name}</div>
+      <div class="chart-bar-bg"><div class="chart-bar" style="width:${pct}%;background:${color}"></div></div>
+      <div class="chart-val" style="color:${color}">${a.pct}%</div>
+    </div>`;
+  }).join('');
+
+  // Allocation table
+  document.getElementById('opt-alloc-tbody').innerHTML = allocs.map(a => `<tr>
+    <td><strong>${a.bank_name}</strong></td>
+    <td>${a.region}</td>
+    <td class="num">${fmt(a.exposure)}</td>
+    <td class="num">${a.pct}%</td>
+    <td class="num">${a.facilities}</td>
+  </tr>`).join('');
 }
 
 // ── Settings ───────────────────────────────────────────

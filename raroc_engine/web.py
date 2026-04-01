@@ -122,6 +122,16 @@ class PortfolioCompareRequest(BaseModel):
     bank_keys: List[str]
 
 
+class OptimizeRequest(BaseModel):
+    facilities: List[DealRequest]
+    bank_keys: List[str]
+    target_raroc: Optional[float] = None
+    max_bank_pct: float = 0.30
+    min_banks: int = 3
+    max_region_pct: float = 0.50
+    locked: Optional[dict] = None  # {"0": "bnp_paribas", "3": "hsbc"}
+
+
 # ── Endpoints ─────────────────────────────────────────────────────
 
 @app.get("/")
@@ -605,6 +615,41 @@ async def compare_portfolio(req: PortfolioCompareRequest):
     results.sort(key=lambda x: -x["raroc"])
     track("compare_banks", banks=len(req.bank_keys), facilities=len(req.facilities))
     return {"comparisons": results, "facility_count": len(req.facilities)}
+
+
+@app.post("/api/optimize")
+async def optimize(req: OptimizeRequest):
+    """Find the optimal allocation of facilities across banks."""
+    from .optimizer import optimize_portfolio
+
+    inputs = [f.to_engine_input() for f in req.facilities]
+    target = req.target_raroc or _config.target_raroc
+
+    # Convert locked keys from string to int
+    locked = {}
+    if req.locked:
+        for k, v in req.locked.items():
+            try:
+                locked[int(k)] = v
+            except (ValueError, TypeError):
+                pass
+
+    try:
+        result = optimize_portfolio(
+            facilities=inputs,
+            bank_keys=req.bank_keys,
+            repo=_repo,
+            base_config=_config,
+            target_raroc=target,
+            max_bank_pct=req.max_bank_pct,
+            min_banks=req.min_banks,
+            max_region_pct=req.max_region_pct,
+            locked=locked,
+        )
+        track("optimize", facilities=len(inputs), banks=len(req.bank_keys), status=result["status"])
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/api/config")

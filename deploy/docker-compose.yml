@@ -12,8 +12,10 @@ services:
       - "0.0.0.0:8800:8000"
     volumes:
       - ../premium_banks.json:/app/premium_banks.json:ro
+      - web_analytics:/app/analytics
     environment:
       - RAROC_PREMIUM_BANKS=/app/premium_banks.json
+      - RAROC_ANALYTICS_DIR=/app/analytics
 
   # Premium data API (api.openraroc.com)
   api:
@@ -39,3 +41,4 @@ services:
 
 volumes:
   api_data:
+  web_analytics:

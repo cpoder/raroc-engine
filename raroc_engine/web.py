@@ -18,8 +18,18 @@ from .models import (
 )
 from .repository import Repository
 from .calculator import RAROCCalculator
+from .analytics import track
 
 app = FastAPI(title="RAROC Engine", version="1.0.0")
+
+# CORS for admin dashboard cross-origin analytics fetch
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://api.openraroc.com", "http://localhost:8001"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
 
 # Serve static frontend
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -222,6 +232,7 @@ async def calculate(req: DealRequest):
     try:
         inp = req.to_engine_input()
         out = _calc.calculate(inp)
+        track("calculate", product=req.product_type, rating=req.rating, bank=req.bank)
         return {
             "input": asdict(inp),
             "output": asdict(out),
@@ -234,6 +245,7 @@ async def calculate(req: DealRequest):
 @app.post("/api/solve")
 async def solve(req: SolveRequest):
     try:
+        track("solve", solve_for=req.solve_for)
         inp = req.deal.to_engine_input()
         target = req.target_raroc or _config.target_raroc
 
@@ -265,6 +277,7 @@ async def solve(req: SolveRequest):
 @app.post("/api/sensitivity")
 async def sensitivity(req: SensitivityRequest):
     try:
+        track("sensitivity", parameter=req.parameter)
         inp = req.deal.to_engine_input()
 
         defaults = {
@@ -350,6 +363,8 @@ async def portfolio(file: UploadFile = File(...)):
             portfolio_raroc = (1.0 - tax) * (
                 (total_revenue - total_cost - funding - total_el) / total_fpe + rfr
             )
+
+        track("portfolio_upload", facilities=len(valid), errors=len(facilities) - len(valid))
 
         return {
             "facilities": facilities,
@@ -588,6 +603,7 @@ async def compare_portfolio(req: PortfolioCompareRequest):
         })
 
     results.sort(key=lambda x: -x["raroc"])
+    track("compare_banks", banks=len(req.bank_keys), facilities=len(req.facilities))
     return {"comparisons": results, "facility_count": len(req.facilities)}
 
 
@@ -605,6 +621,13 @@ async def update_config(req: ConfigRequest):
     _config = EngineConfig.from_dict(current)
     _rebuild_calc()
     return _config.to_dict()
+
+
+@app.get("/api/analytics")
+async def get_analytics(days: int = 30):
+    """Usage analytics. No auth required — data is aggregate only, no PII."""
+    from .analytics import get_stats
+    return get_stats(days)
 
 
 def run_server(host: str = "0.0.0.0", port: int = 8000):

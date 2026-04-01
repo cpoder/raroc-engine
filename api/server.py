@@ -400,7 +400,16 @@ ADMIN_HTML = """<!DOCTYPE html>
   <div class="stats" id="stats">
     <div class="stat"><div class="label">Customers</div><div class="value" id="stat-customers">-</div></div>
     <div class="stat"><div class="label">Active Keys</div><div class="value" id="stat-keys">-</div></div>
-    <div class="stat"><div class="label">Calls Today</div><div class="value" id="stat-calls">-</div></div>
+    <div class="stat"><div class="label">Calculations</div><div class="value" id="stat-calcs">-</div></div>
+    <div class="stat"><div class="label">Portfolios</div><div class="value" id="stat-portfolios">-</div></div>
+    <div class="stat"><div class="label">Comparisons</div><div class="value" id="stat-compares">-</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2>Usage (last 14 days)</h2>
+    </div>
+    <div id="analytics-chart" style="background:var(--surface);border-radius:8px;padding:16px;min-height:120px;display:flex;align-items:end;gap:4px;"></div>
   </div>
 
   <div class="section">
@@ -488,6 +497,8 @@ async function authenticate() {
   }
 }
 
+const WEBAPP = 'https://openraroc.com';
+
 async function loadData() {
   try {
     const r = await fetch(apiBase() + '/admin/api/customers', { headers: headers() });
@@ -495,10 +506,63 @@ async function loadData() {
     const json = await r.json();
     data = json.customers || [];
     render();
+    loadAnalytics();
   } catch (e) {
     console.error('Load error:', e);
   }
 }
+
+async function loadAnalytics() {
+  try {
+    const r = await fetch(WEBAPP + '/api/analytics?days=14');
+    if (!r.ok) return;
+    const stats = await r.json();
+    const ev = stats.by_event || {};
+    document.getElementById('stat-calcs').textContent = ev.calculate || 0;
+    document.getElementById('stat-portfolios').textContent = ev.portfolio_upload || 0;
+    document.getElementById('stat-compares').textContent = ev.compare_banks || 0;
+    renderAnalyticsChart(stats.by_day || {});
+  } catch (e) {
+    console.error('Analytics error:', e);
+  }
+}
+
+function renderAnalyticsChart(byDay) {
+  const chart = document.getElementById('analytics-chart');
+  const days = Object.keys(byDay).sort().slice(-14);
+  if (!days.length) { chart.innerHTML = '<div class="empty" style="width:100%">No usage data yet</div>'; return; }
+
+  // Fill in missing days
+  const allDays = [];
+  if (days.length > 0) {
+    const start = new Date(days[0]);
+    const end = new Date(days[days.length - 1]);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      allDays.push(d.toISOString().slice(0, 10));
+    }
+  }
+
+  const maxVal = Math.max(...allDays.map(d => {
+    const ev = byDay[d] || {};
+    return Object.values(ev).reduce((a, b) => a + b, 0);
+  }), 1);
+
+  const colors = {calculate:'var(--accent)',portfolio_upload:'var(--green)',compare_banks:'#a855f7',solve:'var(--yellow)',sensitivity:'var(--muted)'};
+
+  chart.innerHTML = allDays.map(d => {
+    const ev = byDay[d] || {};
+    const total = Object.values(ev).reduce((a, b) => a + b, 0);
+    const pct = Math.max((total / maxVal) * 100, 2);
+    const label = d.slice(5); // MM-DD
+    const parts = Object.entries(ev).map(([k,v]) => `${k}: ${v}`).join(', ');
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;" title="${d}: ${parts || 'no events'}">
+      <div style="width:100%;height:80px;display:flex;flex-direction:column;justify-content:flex-end;">
+        <div style="width:100%;height:${pct}%;background:var(--accent);border-radius:3px;min-height:2px;"></div>
+      </div>
+      <div style="font-size:9px;color:var(--muted);transform:rotate(-45deg);white-space:nowrap;">${label}</div>
+      <div style="font-size:10px;color:var(--text);font-weight:600;">${total||''}</div>
+    </div>`;
+  }).join('');
 
 function fmtDate(iso) {
   if (!iso) return '-';

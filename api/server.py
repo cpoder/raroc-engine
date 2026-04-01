@@ -591,7 +591,6 @@ function render() {
 
   document.getElementById('stat-customers').textContent = data.length;
   document.getElementById('stat-keys').textContent = activeKeys.length;
-  document.getElementById('stat-calls').textContent = callsToday;
   document.getElementById('customer-count').textContent = data.length;
   document.getElementById('key-count').textContent = allKeys.length;
 

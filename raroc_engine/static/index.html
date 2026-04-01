@@ -290,6 +290,7 @@ header .sub { color: #94a3b8; font-size: 13px; }
       <span style="cursor:pointer;color:var(--accent);" onclick="showBankDirectory()">View all bank details</span>
     </div>
     <button class="btn btn-primary" style="width:auto;" onclick="runPortfolioComparison()" id="btn-compare" disabled>Compare Banks</button>
+    <button class="btn" style="width:auto;background:var(--surface2);color:var(--text);margin-left:8px;" onclick="downloadReport()" id="btn-report" disabled>Download PDF Report</button>
   </div>
   <div id="compare-results" style="display:none;">
     <div class="card">
@@ -638,6 +639,7 @@ function renderPortfolio() {
     document.getElementById('portfolio-loaded').style.display = 'none';
     document.getElementById('compare-status').textContent = 'Upload a portfolio first to enable comparison.';
     document.getElementById('btn-compare').disabled = true;
+    document.getElementById('btn-report').disabled = true;
     updateFacilitySelectors();
     renderOptimizeTab();
     return;
@@ -646,6 +648,7 @@ function renderPortfolio() {
   document.getElementById('portfolio-loaded').style.display = 'block';
   document.getElementById('compare-status').textContent = `${portfolioOutputs.length} facilities loaded. Select banks and compare.`;
   document.getElementById('btn-compare').disabled = false;
+  document.getElementById('btn-report').disabled = false;
   renderOptimizeTab();
 
   const totals = {exposure:0, fpe:0, revenue:0, cost:0, el:0};
@@ -955,6 +958,42 @@ async function runSensitivity() {
       <div class="chart-val" style="color:${color}">${(p.raroc*100).toFixed(2)}%</div>
     </div>`;
   }).join('');
+}
+
+// ── PDF Report ─────────────────────────────────────────
+async function downloadReport() {
+  const checked = [...document.querySelectorAll('#bank-checkboxes input:checked')].map(cb=>cb.value);
+  if (!checked.length || !portfolio.length) return;
+
+  const btn = document.getElementById('btn-report');
+  btn.disabled = true; btn.textContent = 'Generating...';
+
+  const company = prompt('Company name for the report (optional):') || '';
+  const facilities = portfolio.map(inp => buildDealFromInput(inp));
+
+  try {
+    const r = await fetch('/api/report', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        facilities, bank_keys: checked,
+        company_name: company,
+        optimize: true,
+        max_bank_pct: 0.40, min_banks: 3, max_region_pct: 0.60,
+      }),
+    });
+    if (!r.ok) throw new Error('Report generation failed');
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = r.headers.get('content-disposition')?.match(/filename="(.+)"/)?.[1] || 'openraroc_report.pdf';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+  btn.disabled = false; btn.textContent = 'Download PDF Report';
 }
 
 // ── Optimize ───────────────────────────────────────────

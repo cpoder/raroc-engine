@@ -4,6 +4,7 @@ import os
 import io
 import csv
 from dataclasses import asdict
+from datetime import datetime, timezone
 from typing import Optional, List
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
@@ -130,6 +131,17 @@ class OptimizeRequest(BaseModel):
     min_banks: int = 3
     max_region_pct: float = 0.50
     locked: Optional[dict] = None  # {"0": "bnp_paribas", "3": "hsbc"}
+
+
+class ReportRequest(BaseModel):
+    facilities: List[DealRequest]
+    bank_keys: List[str]
+    company_name: str = ""
+    target_raroc: Optional[float] = None
+    optimize: bool = False
+    max_bank_pct: float = 0.40
+    min_banks: int = 3
+    max_region_pct: float = 0.60
 
 
 # ── Endpoints ─────────────────────────────────────────────────────
@@ -650,6 +662,116 @@ async def optimize(req: OptimizeRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/report")
+async def generate_report_endpoint(req: ReportRequest):
+    """Generate a PDF credit profile report."""
+    from .report import generate_report
+
+    target = req.target_raroc or _config.target_raroc
+    inputs = [f.to_engine_input() for f in req.facilities]
+
+    # Calculate portfolio
+    facilities_data = []
+    total_rev = total_cost = total_el = total_fpe = total_exposure = 0
+    for i, (deal, inp) in enumerate(zip(req.facilities, inputs)):
+        out = _calc.calculate(inp)
+        name = deal.operation or f"Facility {i+1}"
+        fac = {"name": name, "input": asdict(inp), "output": asdict(out)}
+        facilities_data.append(fac)
+        total_rev += out.revenue
+        total_cost += out.cost
+        total_el += out.average_loss
+        total_fpe += out.fpe
+        total_exposure += out.exposure
+
+    portfolio_raroc = 0.0
+    if total_fpe > 0:
+        funding = _config.funding_cost_bp * total_exposure
+        portfolio_raroc = (1.0 - _config.bank_tax_rate) * (
+            (total_rev - total_cost - funding - total_el) / total_fpe + _config.risk_free_rate
+        )
+
+    portfolio_summary = {
+        "count": len(facilities_data),
+        "total_exposure": total_exposure,
+        "total_fpe": total_fpe,
+        "total_revenue": total_rev,
+        "total_expected_loss": total_el,
+        "portfolio_raroc": portfolio_raroc,
+    }
+
+    # Bank comparison
+    comparisons = []
+    for bank_key in req.bank_keys:
+        profile = BANK_PROFILES.get(bank_key)
+        if not profile:
+            continue
+        cfg = EngineConfig(
+            regime=_config.regime,
+            risk_free_rate=_config.risk_free_rate,
+            bank_tax_rate=profile.effective_tax_rate,
+            funding_cost_bp=profile.funding_spread_bp,
+            output_floor_pct=_config.output_floor_pct,
+            pd_floor=_config.pd_floor,
+            target_raroc=target,
+        )
+        calc = RAROCCalculator(_repo, cfg)
+        b_rev = b_cost = b_el = b_fpe = b_exp = 0
+        for inp in inputs:
+            out = calc.calculate(RAROCInput(**asdict(inp)))
+            b_rev += out.revenue
+            b_cost += out.cost
+            b_el += out.average_loss
+            b_fpe += out.fpe
+            b_exp += out.exposure
+
+        b_raroc = 0.0
+        if b_fpe > 0:
+            b_funding = cfg.funding_cost_bp * b_exp
+            b_raroc = (1.0 - cfg.bank_tax_rate) * (
+                (b_rev - b_cost - b_funding - b_el) / b_fpe + cfg.risk_free_rate
+            )
+        comparisons.append({
+            "bank_key": bank_key, "bank_name": profile.name,
+            "country": profile.country, "cost_to_income": profile.cost_to_income,
+            "tax_rate": profile.effective_tax_rate, "raroc": b_raroc,
+            "total_fpe": b_fpe, "total_exposure": b_exp,
+            "total_revenue": b_rev, "total_el": b_el,
+        })
+    comparisons.sort(key=lambda x: -x["raroc"])
+
+    # Optional optimization
+    optimization = None
+    if req.optimize:
+        from .optimizer import optimize_portfolio
+        locked = {}
+        optimization = optimize_portfolio(
+            facilities=inputs, bank_keys=req.bank_keys, repo=_repo, base_config=_config,
+            target_raroc=target, max_bank_pct=req.max_bank_pct,
+            min_banks=req.min_banks, max_region_pct=req.max_region_pct, locked=locked,
+        )
+
+    pdf_bytes = generate_report(
+        company_name=req.company_name,
+        facilities=facilities_data,
+        portfolio_summary=portfolio_summary,
+        comparisons=comparisons,
+        optimization=optimization,
+        config=_config.to_dict(),
+    )
+
+    track("report", facilities=len(inputs), banks=len(req.bank_keys), optimize=req.optimize)
+
+    filename = f"openraroc_report_{req.company_name or 'portfolio'}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.pdf"
+    filename = filename.replace(" ", "_").lower()
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/api/config")

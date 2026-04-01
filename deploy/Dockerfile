@@ -5,7 +5,7 @@ WORKDIR /app
 # Install dependencies
 RUN pip install --no-cache-dir \
     scipy click rich fastapi uvicorn httpx \
-    python-multipart openpyxl xlsxwriter mcp pydantic
+    python-multipart openpyxl xlsxwriter mcp pydantic fpdf2
 
 # Copy engine
 COPY raroc_engine/ /app/raroc_engine/

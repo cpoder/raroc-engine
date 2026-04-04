@@ -1,10 +1,25 @@
 # Caddy reverse proxy for OpenRAROC
 # Auto-HTTPS with Let's Encrypt
 
+# Redirect www to naked domain
+www.openraroc.com {
+    redir https://openraroc.com{uri} permanent
+}
+
 openraroc.com {
-    reverse_proxy localhost:8000
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+    reverse_proxy localhost:8800
 }
 
 api.openraroc.com {
-    reverse_proxy localhost:8001
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+    }
+    reverse_proxy localhost:8801
 }

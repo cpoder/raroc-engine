@@ -147,6 +147,28 @@ class ReportRequest(BaseModel):
 
 # ── Endpoints ─────────────────────────────────────────────────────
 
+@app.get("/robots.txt", response_class=HTMLResponse)
+async def robots_txt():
+    return HTMLResponse(
+        content="User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /app\n\nSitemap: https://openraroc.com/sitemap.xml\n",
+        media_type="text/plain",
+    )
+
+
+@app.get("/sitemap.xml", response_class=HTMLResponse)
+async def sitemap_xml():
+    urls = [
+        ("https://openraroc.com/", "weekly", "1.0"),
+        ("https://openraroc.com/methodology", "monthly", "0.8"),
+    ]
+    xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    for loc, freq, priority in urls:
+        xml += f"  <url>\n    <loc>{loc}</loc>\n    <changefreq>{freq}</changefreq>\n    <priority>{priority}</priority>\n  </url>\n"
+    xml += "</urlset>\n"
+    return HTMLResponse(content=xml, media_type="application/xml")
+
+
 @app.get("/")
 async def landing():
     return FileResponse(os.path.join(STATIC_DIR, "landing.html"))
@@ -220,7 +242,9 @@ async def methodology():
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RAROC Calculation Methodology - OpenRAROC</title>
+<title>RAROC Calculation Methodology - Basel III Credit Risk | OpenRAROC</title>
+<meta name="description" content="Detailed RAROC calculation methodology: Basel III IRB approach, PD/LGD/EAD models, capital requirements, expected loss. Fully documented, open source.">
+<link rel="canonical" href="https://openraroc.com/methodology">
 <style>
   :root {{ --bg: #0f172a; --surface: #1e293b; --border: #334155; --text: #e2e8f0; --text2: #94a3b8; --accent: #3b82f6; }}
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}

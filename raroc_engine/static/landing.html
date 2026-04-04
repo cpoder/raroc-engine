@@ -3,8 +3,68 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OpenRAROC - See your credit through your banker's eyes</title>
-<meta name="description" content="Compare how 59 banks price your credit facilities. Upload your portfolio, find the cheapest bank allocation, and generate reports for your CFO.">
+<title>OpenRAROC - RAROC Calculator & Bank Comparison Tool for Corporate Treasurers</title>
+<meta name="description" content="Free RAROC calculator: compare how 59 banks price your credit facilities using real Pillar 3 data. Optimize bank allocation, find the cheapest lender, generate CFO-ready reports. Basel III compliant.">
+<meta name="keywords" content="RAROC calculator, bank comparison tool, credit facility pricing, corporate treasury, Basel III, risk-adjusted return on capital, bank optimization, Pillar 3 data, loan pricing, credit risk analysis, bank allocation optimizer, corporate finance tool">
+<link rel="canonical" href="https://openraroc.com/">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://openraroc.com/">
+<meta property="og:title" content="OpenRAROC - Compare How 59 Banks Price Your Credit Facilities">
+<meta property="og:description" content="Free RAROC calculator using real Pillar 3 regulatory data. Compare bank pricing, optimize allocation, generate CFO-ready reports. 59 banks, 26 countries.">
+<meta property="og:site_name" content="OpenRAROC">
+<meta property="og:locale" content="en_US">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OpenRAROC - RAROC Calculator & Bank Comparison">
+<meta name="twitter:description" content="See your credit through your banker's eyes. Compare 59 banks, optimize allocation, generate reports. Free to start.">
+
+<!-- JSON-LD Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "OpenRAROC",
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "Web",
+  "url": "https://openraroc.com",
+  "description": "RAROC calculator and bank comparison tool for corporate treasurers. Compare how 59 banks price credit facilities using real Pillar 3 regulatory data.",
+  "offers": [
+    {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "EUR",
+      "description": "Free tier: 4 banks, full RAROC calculator, reverse solver, sensitivity analysis"
+    },
+    {
+      "@type": "Offer",
+      "price": "49",
+      "priceCurrency": "EUR",
+      "description": "Pro tier: 59 banks across 26 countries, portfolio optimizer, PDF reports, API access",
+      "billingIncrement": "P1Y"
+    }
+  ],
+  "featureList": [
+    "RAROC calculation using Basel III methodology",
+    "Bank comparison across 59 global banks",
+    "Portfolio optimization with MILP solver",
+    "PDF credit profile reports",
+    "Real Pillar 3 regulatory data",
+    "API and CLI access"
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "OpenRAROC",
+  "url": "https://openraroc.com",
+  "description": "Open-source RAROC engine for corporate credit risk analysis"
+}
+</script>
 <style>
 :root {
   --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
@@ -140,7 +200,7 @@ footer .links { display: flex; gap: 24px; justify-content: center; margin-bottom
 
 <!-- Features -->
 <div class="section">
-  <div class="section-title">What you get</div>
+  <h2 class="section-title">RAROC Bank Comparison & Optimization Tools</h2>
   <div class="section-sub">Everything a corporate treasurer needs to understand and negotiate bank pricing.</div>
   <div class="features">
     <div class="feature-card">
@@ -163,7 +223,7 @@ footer .links { display: flex; gap: 24px; justify-content: center; margin-bottom
 
 <!-- How it works -->
 <div class="section">
-  <div class="section-title">How it works</div>
+  <h2 class="section-title">How the RAROC Calculator Works</h2>
   <div class="section-sub">Three steps. Two minutes. Actionable insight.</div>
   <div class="steps">
     <div class="step">
@@ -183,8 +243,8 @@ footer .links { display: flex; gap: 24px; justify-content: center; margin-bottom
 
 <!-- Banks -->
 <div class="section" style="text-align:center;">
-  <div class="section-title">59 banks. 26 countries.</div>
-  <div class="section-sub">Every data point extracted from actual regulatory filings. Not estimates.</div>
+  <h2 class="section-title">59 Banks Across 26 Countries</h2>
+  <div class="section-sub">Every data point extracted from actual Pillar 3 regulatory filings. Not estimates.</div>
   <div class="bank-regions">
     <span class="region-tag">France (6)</span>
     <span class="region-tag">United Kingdom (5)</span>
@@ -215,7 +275,7 @@ footer .links { display: flex; gap: 24px; justify-content: center; margin-bottom
 
 <!-- Pricing -->
 <div class="section" id="pricing">
-  <div class="section-title">Pricing</div>
+  <h2 class="section-title">Pricing</h2>
   <div class="section-sub">Start free. Upgrade when you need all 59 banks.</div>
   <div class="pricing">
     <div class="price-card">
@@ -250,7 +310,7 @@ footer .links { display: flex; gap: 24px; justify-content: center; margin-bottom
 
 <!-- Methodology -->
 <div class="section" style="text-align:center;">
-  <div class="section-title">Basel III. No black box.</div>
+  <h2 class="section-title">Basel III Methodology. Fully Transparent.</h2>
   <div class="section-sub">Every formula is documented. Every data source is cited. Read the full methodology or inspect the open source code.</div>
   <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
     <a href="/methodology" class="btn btn-outline">Read the methodology</a>
@@ -260,7 +320,7 @@ footer .links { display: flex; gap: 24px; justify-content: center; margin-bottom
 
 <!-- Final CTA -->
 <div class="section" style="text-align:center;padding-bottom:80px;">
-  <div class="section-title">Ready to see your portfolio?</div>
+  <h2 class="section-title">Ready to See Your Portfolio?</h2>
   <p style="color:var(--text3);font-size:16px;margin-bottom:24px;">Upload a CSV. Get results in seconds. No signup required.</p>
   <a href="/app" class="btn btn-primary btn-lg">Open the calculator</a>
 </div>
@@ -272,6 +332,11 @@ footer .links { display: flex; gap: 24px; justify-content: center; margin-bottom
     <a href="https://github.com/cpoder/raroc-engine">GitHub</a>
   </div>
   <div>OpenRAROC &mdash; Bank data from public Pillar 3 CR6 regulatory filings</div>
+  <p style="margin-top:12px;font-size:11px;color:var(--text3);max-width:700px;margin-left:auto;margin-right:auto;">
+    OpenRAROC is a free, open-source RAROC (Risk-Adjusted Return on Capital) calculator for corporate treasurers and CFOs.
+    Compare credit facility pricing across 59 global banks using real Basel III Pillar 3 regulatory filings.
+    Optimize your bank allocation to minimize borrowing costs. Generate professional credit profile reports for board presentations.
+  </p>
 </footer>
 
 </body>

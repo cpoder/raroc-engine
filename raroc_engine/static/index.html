@@ -160,22 +160,18 @@ header .sub { color: #94a3b8; font-size: 13px; }
         <div style="color:var(--text3);font-size:11px;">Real Pillar 3 data, annual refresh</div>
       </div>
     </div>
-    <div class="form-group" style="margin-bottom:10px;">
-      <label>Your email</label>
-      <input type="email" id="checkout-email" placeholder="cfo@company.com">
-    </div>
-    <button class="btn btn-primary" style="width:100%;margin-bottom:12px;" onclick="startCheckout()">Subscribe with Stripe</button>
-    <div style="text-align:center;color:var(--text3);font-size:12px;margin-bottom:12px;">or</div>
-    <div class="form-group" style="margin-bottom:8px;">
-      <label>Already have an API key?</label>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="api-key-input" placeholder="rk_..." style="flex:1;">
-        <button class="btn btn-sm btn-primary" onclick="activateKey()">Activate</button>
+    <form autocomplete="off" onsubmit="event.preventDefault();startCheckout();">
+      <div class="form-group" style="margin-bottom:10px;">
+        <label for="checkout-email">Your email</label>
+        <input type="email" id="checkout-email" name="contact_email" autocomplete="email" inputmode="email" placeholder="cfo@company.com">
       </div>
-    </div>
-    <div id="key-error" style="color:var(--red);font-size:12px;display:none;"></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;margin-bottom:12px;">Subscribe with Stripe</button>
+    </form>
     <div style="text-align:center;margin-top:12px;">
       <button class="btn btn-sm btn-outline" onclick="hideProModal()">Continue with free version</button>
+    </div>
+    <div style="text-align:center;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+      <a href="#" onclick="event.preventDefault();showActivateDialog();" style="color:var(--text3);font-size:12px;text-decoration:underline;">Already purchased? Activate your subscription token</a>
     </div>
   </div>
 </div>
@@ -455,25 +451,47 @@ function startCheckout() {
   window.location.href = API_BASE + '/v1/checkout?email=' + encodeURIComponent(email);
 }
 
-function activateKey() {
-  const key = document.getElementById('api-key-input').value.trim();
+function showActivateDialog() {
+  hideProModal();
+  const overlay = document.createElement('div');
+  overlay.id = 'activate-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:2000;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:460px;width:90%;">
+      <h2 style="font-size:18px;margin-bottom:6px;">Activate subscription token</h2>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px;">Paste the token sent to your email after subscribing on Stripe.</p>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <input type="text" id="activation-token-input" name="subscription_token" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" placeholder="rk_..." aria-label="Subscription token" style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:monospace;font-size:13px;">
+        <button class="btn btn-sm btn-primary" onclick="submitActivation()">Activate</button>
+      </div>
+      <div id="activate-error" style="color:var(--red);font-size:12px;display:none;margin-top:6px;"></div>
+      <div style="text-align:center;margin-top:16px;">
+        <button class="btn btn-sm btn-outline" onclick="document.getElementById('activate-overlay').remove()">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('activation-token-input').focus(), 50);
+}
+
+function submitActivation() {
+  const key = document.getElementById('activation-token-input').value.trim();
+  const errEl = document.getElementById('activate-error');
   if (!key) return;
-  // Validate key against the API
   fetch(API_BASE + '/v1/banks', {headers:{'Authorization':'Bearer '+key}})
     .then(r => {
       if (r.ok) {
         localStorage.setItem('raroc_api_key', key);
         isPro = true;
         updateProUI();
-        hideProModal();
+        document.getElementById('activate-overlay').remove();
         renderPortfolio();
       } else {
-        document.getElementById('key-error').textContent = 'Invalid or expired key';
-        document.getElementById('key-error').style.display = 'block';
+        errEl.textContent = 'Invalid or expired token';
+        errEl.style.display = 'block';
       }
     }).catch(() => {
-      document.getElementById('key-error').textContent = 'Could not verify key';
-      document.getElementById('key-error').style.display = 'block';
+      errEl.textContent = 'Could not verify token';
+      errEl.style.display = 'block';
     });
 }
 
@@ -501,7 +519,7 @@ function showKeyDialog(key) {
       <h2 style="color:var(--green);font-size:22px;margin-bottom:8px;">Pro Activated!</h2>
       <p style="color:var(--text2);font-size:14px;margin-bottom:20px;">All 35 banks are now unlocked. Here's your API key for CLI and MCP server use:</p>
       <div style="display:flex;gap:8px;margin-bottom:16px;">
-        <input type="text" value="${key}" readonly id="key-display" style="flex:1;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--accent);font-family:monospace;font-size:14px;text-align:center;">
+        <input type="text" value="${key}" readonly id="key-display" name="display_token" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" aria-label="Your subscription token" style="flex:1;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--accent);font-family:monospace;font-size:14px;text-align:center;">
         <button onclick="copyKey()" style="padding:12px 20px;background:var(--accent2);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;" id="copy-btn">Copy</button>
       </div>
       <p style="color:var(--text3);font-size:12px;margin-bottom:20px;">

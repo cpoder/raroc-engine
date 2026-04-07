@@ -157,14 +157,21 @@ async def robots_txt():
 
 @app.get("/sitemap.xml", response_class=HTMLResponse)
 async def sitemap_xml():
-    from . import bank_pages
+    from . import bank_pages, country_pages, compare_pages, insights
     urls = [
         ("https://openraroc.com/", "weekly", "1.0"),
         ("https://openraroc.com/banks", "weekly", "0.9"),
+        ("https://openraroc.com/insights", "weekly", "0.8"),
         ("https://openraroc.com/methodology", "monthly", "0.8"),
     ]
     for slug in bank_pages.all_bank_slugs():
         urls.append((f"https://openraroc.com/banks/{slug}", "monthly", "0.7"))
+    for slug in country_pages.all_country_slugs():
+        urls.append((f"https://openraroc.com/countries/{slug}", "monthly", "0.7"))
+    for slug in compare_pages.all_compare_slugs():
+        urls.append((f"https://openraroc.com/compare/{slug}", "monthly", "0.6"))
+    for slug in insights.all_article_slugs():
+        urls.append((f"https://openraroc.com/insights/{slug}", "monthly", "0.8"))
 
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
@@ -189,6 +196,45 @@ async def bank_page(slug: str):
     html = bank_pages.render_bank_page(key)
     if html is None:
         raise HTTPException(404, f"Unknown bank: {slug}")
+    return html
+
+
+@app.get("/countries/{slug}", response_class=HTMLResponse)
+async def country_page(slug: str):
+    from . import country_pages
+    country = country_pages.country_for_slug(slug)
+    if not country:
+        raise HTTPException(404, f"Unknown country: {slug}")
+    html = country_pages.render_country_page(country)
+    if html is None:
+        raise HTTPException(404, f"Unknown country: {slug}")
+    return html
+
+
+@app.get("/compare/{slug}", response_class=HTMLResponse)
+async def compare_page(slug: str):
+    from . import compare_pages
+    parsed = compare_pages.parse_compare_slug(slug)
+    if not parsed:
+        raise HTTPException(404, f"Invalid comparison: {slug}")
+    html = compare_pages.render_compare_page(parsed[0], parsed[1])
+    if html is None:
+        raise HTTPException(404, f"Invalid comparison: {slug}")
+    return html
+
+
+@app.get("/insights", response_class=HTMLResponse)
+async def insights_index():
+    from . import insights
+    return insights.render_insights_index()
+
+
+@app.get("/insights/{slug}", response_class=HTMLResponse)
+async def insights_article(slug: str):
+    from . import insights
+    html = insights.render_article(slug)
+    if html is None:
+        raise HTTPException(404, f"Article not found: {slug}")
     return html
 
 

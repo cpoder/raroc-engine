@@ -65,6 +65,70 @@
   "description": "Open-source RAROC engine for corporate credit risk analysis"
 }
 </script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is RAROC?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "RAROC (Risk-Adjusted Return on Capital) is the after-tax return a bank earns on the regulatory capital it must hold against a loan. It is computed as net revenue (spread plus fees, minus operating cost, funding cost, and expected loss) divided by the capital required, after tax. Banks use it to decide whether a deal meets their internal hurdle rate (typically 10-15%)."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is RAROC calculated for a corporate loan?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "RAROC = (1 - tax rate) × [(Revenue - Operating Cost - Funding Cost - Expected Loss) / Capital Required + Risk-Free Rate]. Revenue comes from spread and fees. Operating cost is revenue times the bank's cost-to-income ratio. Expected loss is PD × LGD × EAD. Capital required is RWA times the bank's CET1 ratio. Each bank uses its own parameters from its Pillar 3 regulatory disclosures."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What are Pillar 3 disclosures?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Pillar 3 is the public disclosure requirement under the Basel framework. Banks above a certain size must publish detailed information about their risk profile, including credit risk parameters (PD, LGD, EAD) by exposure class. The CR6 template specifically breaks down credit risk by IRB approach and PD band, which is what OpenRAROC uses to model how each bank prices corporate credit."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do different banks price the same loan differently?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Each bank has different cost structures (cost-to-income ratio), funding costs, tax rates, and internal credit risk models. A bank with a 38% cost-to-income ratio needs much less spread to hit its hurdle rate than one with 70%. Two banks pricing the same EUR 25M BBB+ term loan can differ by 50-80bp in their minimum acceptable spread."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is a good RAROC for a corporate loan?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "From the bank's perspective, RAROC should exceed its internal hurdle rate, which is typically 10-15% in Europe (12% is the most common target). Below the hurdle, the loan destroys economic value even if it looks profitable on a cash basis. From the borrower's perspective, RAROC near or below the hurdle indicates negotiating room: the bank's margin is thin and you have leverage."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How accurate is OpenRAROC's bank data?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Every bank in the OpenRAROC dataset is sourced directly from public Pillar 3 CR6 filings and the bank's own annual financial reports. Each bank profile includes a citation showing the exact filing and reference. Confidence levels are explicit. Data is refreshed annually as banks publish new disclosures."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is OpenRAROC free to use?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. The free tier includes the full RAROC calculator, reverse spread solver, sensitivity analysis, and bank comparison across 4 banks (BNP Paribas, HSBC, Deutsche Bank, JP Morgan). The Pro tier (EUR 49/year) unlocks all 59 banks, the portfolio optimizer, PDF credit profile reports, and API/CLI access."
+      }
+    }
+  ]
+}
+</script>
 <style>
 :root {
   --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
@@ -163,6 +227,7 @@ footer .links { display: flex; gap: 24px; justify-content: center; margin-bottom
   <div class="logo"><span>Open</span>RAROC</div>
   <div class="links">
     <a href="/banks">Banks</a>
+    <a href="/insights">Insights</a>
     <a href="/methodology">Methodology</a>
     <a href="https://github.com/cpoder/raroc-engine">GitHub</a>
     <a href="/app" class="btn btn-primary" style="padding:8px 20px;">Open App</a>
@@ -309,6 +374,42 @@ footer .links { display: flex; gap: 24px; justify-content: center; margin-bottom
       </ul>
       <a href="/app" class="btn btn-primary" style="width:100%;" onclick="localStorage.setItem('show_pro_modal','1')">Go Pro</a>
     </div>
+  </div>
+</div>
+
+<!-- FAQ -->
+<div class="section" id="faq">
+  <h2 class="section-title">Frequently Asked Questions</h2>
+  <div class="section-sub">Common questions about RAROC, Pillar 3, and corporate credit pricing.</div>
+  <div style="max-width:780px;margin:0 auto;">
+    <details style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:10px;">
+      <summary style="cursor:pointer;font-weight:600;font-size:16px;color:var(--text);">What is RAROC?</summary>
+      <p style="color:var(--text2);margin-top:12px;font-size:14px;">RAROC (Risk-Adjusted Return on Capital) is the after-tax return a bank earns on the regulatory capital it must hold against a loan. Banks use it to decide whether a deal meets their internal hurdle rate &mdash; typically 10-15% in Europe.</p>
+    </details>
+    <details style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:10px;">
+      <summary style="cursor:pointer;font-weight:600;font-size:16px;color:var(--text);">How is RAROC calculated for a corporate loan?</summary>
+      <p style="color:var(--text2);margin-top:12px;font-size:14px;">RAROC = (1 &minus; tax rate) &times; [(Revenue &minus; Operating Cost &minus; Funding Cost &minus; Expected Loss) / Capital Required + Risk-Free Rate]. Revenue comes from spread and fees. Each bank uses its own parameters from its <a href="/methodology">Pillar 3 disclosures</a>.</p>
+    </details>
+    <details style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:10px;">
+      <summary style="cursor:pointer;font-weight:600;font-size:16px;color:var(--text);">What are Pillar 3 disclosures?</summary>
+      <p style="color:var(--text2);margin-top:12px;font-size:14px;">Pillar 3 is the public disclosure requirement under Basel. Banks publish their credit risk parameters (PD, LGD, EAD) by exposure class. The CR6 template is what OpenRAROC uses to model how each bank prices corporate credit. <a href="/insights/read-pillar-3-disclosures">Read our deep-dive guide</a>.</p>
+    </details>
+    <details style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:10px;">
+      <summary style="cursor:pointer;font-weight:600;font-size:16px;color:var(--text);">Why do different banks price the same loan differently?</summary>
+      <p style="color:var(--text2);margin-top:12px;font-size:14px;">Different cost-to-income ratios, funding costs, tax rates, and internal risk models. A bank at 38% cost-to-income needs much less spread than one at 70%. Two banks pricing the same EUR 25M BBB+ term loan can differ by 50-80bp.</p>
+    </details>
+    <details style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:10px;">
+      <summary style="cursor:pointer;font-weight:600;font-size:16px;color:var(--text);">What is a good RAROC for a corporate loan?</summary>
+      <p style="color:var(--text2);margin-top:12px;font-size:14px;">From the bank's side, above the 10-15% hurdle. From the borrower's side, RAROC near or below the hurdle indicates the bank's margin is thin &mdash; you have negotiating leverage.</p>
+    </details>
+    <details style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:10px;">
+      <summary style="cursor:pointer;font-weight:600;font-size:16px;color:var(--text);">How accurate is OpenRAROC's bank data?</summary>
+      <p style="color:var(--text2);margin-top:12px;font-size:14px;">Every bank profile is sourced directly from public Pillar 3 CR6 filings and annual reports, with citations. Refreshed annually as banks publish new disclosures.</p>
+    </details>
+    <details style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:10px;">
+      <summary style="cursor:pointer;font-weight:600;font-size:16px;color:var(--text);">Is OpenRAROC free to use?</summary>
+      <p style="color:var(--text2);margin-top:12px;font-size:14px;">Yes. Free tier: 4 banks, full calculator, reverse solver, sensitivity. Pro (EUR 49/year): all 59 banks, optimizer, PDF reports, API/CLI access.</p>
+    </details>
   </div>
 </div>
 

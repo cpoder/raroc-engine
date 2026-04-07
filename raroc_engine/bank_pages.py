@@ -96,7 +96,7 @@ def all_bank_slugs() -> List[str]:
 
 # ── Page rendering ───────────────────────────────────────────────────
 
-_PAGE_CSS = """
+PAGE_CSS = """
 :root { --bg:#0f172a; --surface:#1e293b; --surface2:#334155; --border:#475569;
         --text:#f1f5f9; --text2:#cbd5e1; --text3:#94a3b8;
         --accent:#3b82f6; --accent2:#2563eb; --green:#22c55e; --red:#ef4444; }
@@ -149,12 +149,13 @@ footer .links a { color:var(--text3); }
 """
 
 
-def _nav_html() -> str:
+def nav_html() -> str:
     return """
 <nav>
   <div class="logo"><a href="/" style="color:inherit;text-decoration:none;"><span>Open</span>RAROC</a></div>
   <div class="links">
-    <a href="/banks">All banks</a>
+    <a href="/banks">Banks</a>
+    <a href="/insights">Insights</a>
     <a href="/methodology">Methodology</a>
     <a href="/app" class="btn btn-primary" style="padding:8px 18px;">Open the calculator</a>
   </div>
@@ -162,7 +163,7 @@ def _nav_html() -> str:
 """
 
 
-def _footer_html() -> str:
+def footer_html() -> str:
     return """
 <footer>
   <div class="links">
@@ -177,7 +178,7 @@ def _footer_html() -> str:
 """
 
 
-def _format_bn(eur_billion: float) -> str:
+def format_bn(eur_billion: float) -> str:
     if eur_billion >= 1000:
         return f"EUR {eur_billion/1000:.1f}tn"
     return f"EUR {eur_billion:.0f}bn"
@@ -263,7 +264,7 @@ def render_bank_page(key: str) -> Optional[str]:
 
     intro_para = (
         f'{profile.name} is a {profile.country}-based bank with approximately '
-        f'{_format_bn(profile.corporate_ead_bn)} of corporate credit exposure (EAD) under the '
+        f'{format_bn(profile.corporate_ead_bn)} of corporate credit exposure (EAD) under the '
         f'<strong>{profile.irb_approach}</strong> approach to credit risk capital. The numbers below come '
         f'directly from {profile.name}\'s most recent <a href="/methodology">Pillar 3 CR6 regulatory filings</a> '
         f'and are used to model how this bank prices corporate credit facilities.'
@@ -304,10 +305,10 @@ def render_bank_page(key: str) -> Optional[str]:
 <meta name="twitter:title" content="{profile.name} - RAROC Profile">
 <meta name="twitter:description" content="{description}">
 {jsonld}
-<style>{_PAGE_CSS}</style>
+<style>{PAGE_CSS}</style>
 </head>
 <body>
-{_nav_html()}
+{nav_html()}
 <div class="container">
   <div class="crumbs"><a href="/">Home</a> / <a href="/banks">Banks</a> / {profile.name}</div>
 
@@ -350,7 +351,7 @@ def render_bank_page(key: str) -> Optional[str]:
       <tr><td>Avg LGD (unsecured)</td><td>{profile.avg_lgd_unsecured*100:.1f}%</td><td>Loss share if borrower defaults, no collateral</td></tr>
       <tr><td>Avg LGD (secured)</td><td>{profile.avg_lgd_secured*100:.1f}%</td><td>Loss share with eligible collateral</td></tr>
       <tr><td>Funding spread</td><td>{profile.funding_spread_bp*10000:.0f}bp</td><td>Bank's wholesale funding cost above risk-free</td></tr>
-      <tr><td>Corporate EAD</td><td>{_format_bn(profile.corporate_ead_bn)}</td><td>Total exposure at default to corporates</td></tr>
+      <tr><td>Corporate EAD</td><td>{format_bn(profile.corporate_ead_bn)}</td><td>Total exposure at default to corporates</td></tr>
     </tbody>
   </table>
 
@@ -403,7 +404,7 @@ def render_bank_page(key: str) -> Optional[str]:
     <a href="/app" class="btn btn-primary">Open OpenRAROC</a>
   </div>
 </div>
-{_footer_html()}
+{footer_html()}
 </body>
 </html>"""
     return page
@@ -457,7 +458,7 @@ def render_banks_index() -> str:
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{description}">
 <style>
-{_PAGE_CSS}
+{PAGE_CSS}
 .bank-grid {{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:24px; }}
 @media (max-width:820px) {{ .bank-grid {{ grid-template-columns:repeat(2,1fr); }} }}
 @media (max-width:520px) {{ .bank-grid {{ grid-template-columns:1fr; }} }}
@@ -472,7 +473,7 @@ def render_banks_index() -> str:
 </style>
 </head>
 <body>
-{_nav_html()}
+{nav_html()}
 <div class="container">
   <div class="crumbs"><a href="/">Home</a> / Banks</div>
   <h1>All {total} Banks</h1>
@@ -488,6 +489,6 @@ def render_banks_index() -> str:
     <a href="/app" class="btn btn-primary">Open the calculator</a>
   </div>
 </div>
-{_footer_html()}
+{footer_html()}
 </body>
 </html>"""

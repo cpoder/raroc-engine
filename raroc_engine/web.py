@@ -157,16 +157,39 @@ async def robots_txt():
 
 @app.get("/sitemap.xml", response_class=HTMLResponse)
 async def sitemap_xml():
+    from . import bank_pages
     urls = [
         ("https://openraroc.com/", "weekly", "1.0"),
+        ("https://openraroc.com/banks", "weekly", "0.9"),
         ("https://openraroc.com/methodology", "monthly", "0.8"),
     ]
+    for slug in bank_pages.all_bank_slugs():
+        urls.append((f"https://openraroc.com/banks/{slug}", "monthly", "0.7"))
+
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
     for loc, freq, priority in urls:
         xml += f"  <url>\n    <loc>{loc}</loc>\n    <changefreq>{freq}</changefreq>\n    <priority>{priority}</priority>\n  </url>\n"
     xml += "</urlset>\n"
     return HTMLResponse(content=xml, media_type="application/xml")
+
+
+@app.get("/banks", response_class=HTMLResponse)
+async def banks_index():
+    from . import bank_pages
+    return bank_pages.render_banks_index()
+
+
+@app.get("/banks/{slug}", response_class=HTMLResponse)
+async def bank_page(slug: str):
+    from . import bank_pages
+    key = bank_pages.key_for_slug(slug)
+    if not key:
+        raise HTTPException(404, f"Unknown bank: {slug}")
+    html = bank_pages.render_bank_page(key)
+    if html is None:
+        raise HTTPException(404, f"Unknown bank: {slug}")
+    return html
 
 
 @app.get("/")

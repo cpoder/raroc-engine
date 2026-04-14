@@ -15,6 +15,16 @@ from .config import EngineConfig
 from .calculator import RAROCCalculator
 from .repository import Repository
 from .models import RAROCInput
+from .bank_commentary import generate_commentary
+from .seo_helpers import (
+    breadcrumb_jsonld,
+    faq_jsonld,
+    faq_html,
+    FAQ_CSS,
+    last_updated_html,
+    data_last_updated,
+    data_last_updated_iso,
+)
 
 
 # ── Sample deal used for the demonstrative RAROC calculation ─────────
@@ -201,8 +211,61 @@ def _bank_jsonld(profile: BankProfile, slug: str, raroc: float) -> str:
             f"Cost-to-income {profile.cost_to_income:.1%}, effective tax rate {profile.effective_tax_rate:.1%}, "
             f"average corporate PD {profile.corporate_avg_pd:.2%}, average LGD unsecured {profile.avg_lgd_unsecured:.1%}."
         ),
+        "dateModified": data_last_updated_iso(),
     }
     return f'<script type="application/ld+json">{json.dumps(data)}</script>'
+
+
+def _build_bank_faqs(profile: BankProfile, metrics: dict, rank: int, total: int, country_rank, n_country: int):
+    """Return list of (question, answer_text) tuples for this bank."""
+    faqs = [
+        (
+            f"What is {profile.name}'s average corporate PD?",
+            (
+                f"{profile.name} discloses an EAD-weighted average corporate probability of default "
+                f"of {profile.corporate_avg_pd*100:.2f}% in its most recent Pillar 3 CR6 table, "
+                f"covering roughly EUR {profile.corporate_ead_bn:.0f}bn of corporate credit exposure."
+            ),
+        ),
+        (
+            f"How much spread does {profile.name} need on a BBB+ EUR 25M 5-year term loan?",
+            (
+                f"On that standardised facility, {profile.name} requires a minimum spread of "
+                f"approximately {metrics['min_spread_bp']:.0f}bp to reach a 12% RAROC hurdle, "
+                f"given its disclosed cost-to-income of {profile.cost_to_income*100:.1f}%, "
+                f"effective tax rate of {profile.effective_tax_rate*100:.1f}%, and "
+                f"{profile.irb_approach} IRB designation."
+            ),
+        ),
+        (
+            f"Which IRB approach does {profile.name} use for corporate credit?",
+            (
+                f"{profile.name} reports corporate credit RWA under the {profile.irb_approach} "
+                f"approach. This determines whether internal LGD models or supervisory LGDs apply, "
+                f"and directly affects the capital required on each facility."
+            ),
+        ),
+        (
+            f"How does {profile.name} rank versus peers on RAROC?",
+            (
+                f"Out of {total} banks tracked by OpenRAROC, {profile.name} ranks #{rank} on the "
+                f"standardised BBB+ term-loan calculation used across every bank profile."
+                + (
+                    f" Within {profile.country} specifically, it ranks #{country_rank} of {n_country}."
+                    if country_rank and n_country > 1
+                    else ""
+                )
+            ),
+        ),
+        (
+            f"Where does OpenRAROC get {profile.name}'s data?",
+            (
+                f"Every number on this page is extracted from {profile.name}'s own public filings: "
+                f"{profile.source}. No estimates, no proxies. Source confidence: {profile.confidence}."
+            ),
+        ),
+    ]
+    return faqs
 
 
 def render_bank_page(key: str) -> Optional[str]:
@@ -239,17 +302,49 @@ def render_bank_page(key: str) -> Optional[str]:
         rows_html.insert(5, '<tr><td colspan="5" style="text-align:center;color:var(--text3);font-style:italic;">…</td></tr>')
 
     # Same-country peer links
-    same_country = [
-        (k, p) for k, p, _ in ranked
+    same_country_full = [
+        (k, p, m) for k, p, m in ranked
         if p.country == profile.country and k != key
-    ][:8]
+    ]
+    same_country = same_country_full[:8]
     peer_links_html = ""
     if same_country:
         peer_links_html = (
             '<div class="peer-list">'
-            + "".join(f'<span class="peer-tag"><a href="/banks/{slug_for_key(k)}">{p.name}</a></span>' for k, p in same_country)
+            + "".join(f'<span class="peer-tag"><a href="/banks/{slug_for_key(k)}">{p.name}</a></span>' for k, p, _ in same_country)
             + "</div>"
         )
+
+    # Compare-page links (2–3 most relevant pairs: same-country top-EAD peers)
+    compare_candidates = sorted(same_country_full, key=lambda r: -r[1].corporate_ead_bn)[:3]
+    compare_links_html = ""
+    if compare_candidates:
+        compare_links_html = (
+            '<div class="peer-list">'
+            + "".join(
+                f'<span class="peer-tag"><a href="/compare/{slug}-vs-{slug_for_key(k)}">'
+                f'{profile.name} vs {p.name}</a></span>'
+                for k, p, _ in compare_candidates
+            )
+            + "</div>"
+        )
+
+    # Commentary + FAQ
+    country_peers_all = [(k, p, m) for k, p, m in ranked if p.country == profile.country]
+    commentary_html = generate_commentary(key, profile, metrics, ranked, country_peers_all)
+    country_rank = None
+    n_country = len(country_peers_all)
+    if n_country > 1:
+        sorted_country = sorted(country_peers_all, key=lambda r: -r[2]["raroc"])
+        country_rank = next((i for i, (k, _, _) in enumerate(sorted_country) if k == key), 0) + 1
+    faqs = _build_bank_faqs(profile, metrics, rank_position, total, country_rank, n_country)
+    faq_block = faq_html(faqs, heading=f"Frequently asked questions about {profile.name}")
+    faq_ld = faq_jsonld(faqs)
+    breadcrumb_ld = breadcrumb_jsonld([
+        ("Home", "https://openraroc.com/"),
+        ("Banks", "https://openraroc.com/banks"),
+        (profile.name, f"https://openraroc.com/banks/{slug}"),
+    ])
 
     # SEO meta
     title = f"{profile.name} RAROC & Credit Pricing Profile | Pillar 3 Data | OpenRAROC"
@@ -305,7 +400,10 @@ def render_bank_page(key: str) -> Optional[str]:
 <meta name="twitter:title" content="{profile.name} - RAROC Profile">
 <meta name="twitter:description" content="{description}">
 {jsonld}
-<style>{PAGE_CSS}</style>
+{faq_ld}
+{breadcrumb_ld}
+<meta property="article:modified_time" content="{data_last_updated_iso()}">
+<style>{PAGE_CSS}{FAQ_CSS}</style>
 </head>
 <body>
 {nav_html()}
@@ -314,6 +412,7 @@ def render_bank_page(key: str) -> Optional[str]:
 
   <h1>{profile.name} <span class="country-tag">{profile.country}</span></h1>
   <p class="subtitle">RAROC profile and corporate credit pricing model derived from Pillar 3 disclosures.</p>
+  {last_updated_html()}
 
   <div class="stat-grid">
     <div class="stat-card">
@@ -340,6 +439,9 @@ def render_bank_page(key: str) -> Optional[str]:
 
   <h2>How {profile.name} prices corporate credit</h2>
   <p>{intro_para}</p>
+
+  <h2>What makes {profile.name}'s book distinctive</h2>
+  {commentary_html}
 
   <table>
     <thead><tr><th>Parameter</th><th>Value</th><th>What it means</th></tr></thead>
@@ -388,6 +490,10 @@ def render_bank_page(key: str) -> Optional[str]:
   </div>
 
   {f'<h2>Other {profile.country} banks</h2>{peer_links_html}' if peer_links_html else ''}
+
+  {f'<h2>Compare {profile.name} to peers</h2>{compare_links_html}' if compare_links_html else ''}
+
+  {faq_block}
 
   <h2>Data source</h2>
   <div class="source">

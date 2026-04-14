@@ -23,6 +23,20 @@ from .bank_pages import (
     _calc_for_bank,
     _ranked_banks,
 )
+from .seo_helpers import (
+    breadcrumb_jsonld,
+    faq_jsonld,
+    faq_html,
+    FAQ_CSS,
+    last_updated_html,
+    data_last_updated_iso,
+)
+
+
+def is_curated_pair(key_a: str, key_b: str) -> bool:
+    """True if (a,b) or (b,a) is in the curated sitemap list."""
+    pairs = set(curated_pairs())
+    return (key_a, key_b) in pairs or (key_b, key_a) in pairs
 
 
 def parse_compare_slug(slug: str) -> Optional[Tuple[str, str]]:
@@ -40,10 +54,11 @@ def parse_compare_slug(slug: str) -> Optional[Tuple[str, str]]:
 
 
 def curated_pairs() -> List[Tuple[str, str]]:
-    """Generate a curated list of high-value comparison pairs.
+    """Generate a tight curated list of high-value comparison pairs.
 
-    Strategy: top 2 banks (by EAD) within each country yields one pair per
-    country, plus a few cross-country marquee matchups.
+    Strategy: one pair per country (top-2 by EAD) + ~10 cross-country marquee
+    matchups. Kept intentionally small — Google treats combinatorial compare
+    pages as spam. Any other pair still renders on demand but is noindexed.
     """
     by_country = {}
     for k, p in BANK_PROFILES.items():
@@ -54,14 +69,9 @@ def curated_pairs() -> List[Tuple[str, str]]:
         if len(banks) < 2:
             continue
         banks_sorted = sorted(banks, key=lambda kp: -kp[1].corporate_ead_bn)
-        top = banks_sorted[:3]
-        # Top-2 pair
-        pairs.append((top[0][0], top[1][0]))
-        # Top-1 vs top-3 if available
-        if len(top) >= 3:
-            pairs.append((top[0][0], top[2][0]))
+        pairs.append((banks_sorted[0][0], banks_sorted[1][0]))
 
-    # Cross-country marquee matchups
+    # Cross-country marquee matchups (only keep the most search-worthy)
     marquee = [
         ("bnp_paribas", "deutsche_bank"),
         ("bnp_paribas", "hsbc"),
@@ -127,6 +137,54 @@ def render_compare_page(key_a: str, key_b: str) -> Optional[str]:
         f"EUR {spread_diff * 25_000_000 / 10000:,.0f} per year."
     )
 
+    # SEO: noindex non-curated pairs so Google stops burning crawl budget on
+    # the combinatorial tail. Curated pairs (sitemap) stay indexable.
+    curated = is_curated_pair(key_a, key_b)
+    robots_meta = "" if curated else '<meta name="robots" content="noindex,follow">'
+
+    # FAQ
+    faqs = [
+        (
+            f"Which bank is cheaper on corporate credit: {pa.name} or {pb.name}?",
+            (
+                f"On a BBB+ EUR 25M 5-year term loan, {cheaper_bank.name} requires a minimum spread "
+                f"of {cheaper_spread:.0f}bp to reach a 12% RAROC hurdle, versus {other_spread:.0f}bp "
+                f"at the other bank — a difference of {spread_diff:.0f}bp on the same deal."
+            ),
+        ),
+        (
+            f"How do {pa.name} and {pb.name} compare on corporate PD?",
+            (
+                f"{pa.name} reports an EAD-weighted corporate PD of {pa.corporate_avg_pd*100:.2f}%, "
+                f"while {pb.name} reports {pb.corporate_avg_pd*100:.2f}%. The gap reflects "
+                "differences in obligor mix and geography rather than underwriting quality."
+            ),
+        ),
+        (
+            f"How do the two banks differ on IRB approach?",
+            (
+                f"{pa.name} uses {pa.irb_approach} and {pb.name} uses {pb.irb_approach}. "
+                "The IRB approach determines whether internal LGD models or supervisory LGDs apply, "
+                "which materially affects capital required on every corporate facility."
+            ),
+        ),
+        (
+            "What deal is used in this comparison?",
+            (
+                "A single standardised facility: BBB+ rated, EUR 25M drawn on a EUR 30M commitment, "
+                "5-year tenor, 150bp spread, 20bp commitment fee. Both banks are priced on this "
+                "exact deal using their own disclosed Pillar 3 parameters."
+            ),
+        ),
+    ]
+    faq_block = faq_html(faqs, heading=f"FAQ: {pa.name} vs {pb.name}")
+    faq_ld = faq_jsonld(faqs)
+    breadcrumb_ld = breadcrumb_jsonld([
+        ("Home", "https://openraroc.com/"),
+        ("Banks", "https://openraroc.com/banks"),
+        (f"{pa.name} vs {pb.name}", canonical),
+    ])
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -140,8 +198,13 @@ def render_compare_page(key_a: str, key_b: str) -> Optional[str]:
 <meta property="og:title" content="{pa.name} vs {pb.name}: RAROC Comparison">
 <meta property="og:description" content="{description}">
 <meta property="og:site_name" content="OpenRAROC">
+{robots_meta}
+{faq_ld}
+{breadcrumb_ld}
+<meta property="article:modified_time" content="{data_last_updated_iso()}">
 <style>
 {PAGE_CSS}
+{FAQ_CSS}
 .compare-table td.winner {{ background:rgba(34,197,94,0.12); color:#fff; font-weight:700; }}
 .compare-table th.bank-col {{ color:#fff; font-size:13px; text-transform:none; letter-spacing:0; padding:14px; }}
 </style>
@@ -152,6 +215,7 @@ def render_compare_page(key_a: str, key_b: str) -> Optional[str]:
   <div class="crumbs"><a href="/">Home</a> / <a href="/banks">Banks</a> / Comparison</div>
   <h1>{pa.name} vs {pb.name}</h1>
   <p class="subtitle">Side-by-side credit pricing comparison from Pillar 3 disclosures.</p>
+  {last_updated_html()}
 
   <div class="callout">
     <strong>Verdict:</strong>
@@ -213,6 +277,8 @@ def render_compare_page(key_a: str, key_b: str) -> Optional[str]:
     <span class="peer-tag"><a href="/banks">All banks</a></span>
     <span class="peer-tag"><a href="/methodology">RAROC methodology</a></span>
   </div>
+
+  {faq_block}
 </div>
 {footer_html()}
 </body>

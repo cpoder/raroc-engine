@@ -191,7 +191,13 @@ nav .links a:hover { color: var(--text); text-decoration: none; }
 
 /* Banks section */
 .bank-regions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 20px; }
-.region-tag { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 6px 16px; font-size: 13px; color: var(--text2); }
+.region-tag { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 6px 16px; font-size: 13px; color: var(--text2); text-decoration: none; display: inline-block; transition: border-color 0.15s; }
+.region-tag:hover { border-color: var(--accent); color: #fff; }
+.featured-banks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 24px auto 0; max-width: 920px; }
+@media (max-width: 820px) { .featured-banks { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px) { .featured-banks { grid-template-columns: repeat(2, 1fr); } }
+.featured-bank { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 13px; color: var(--text2); text-align: center; text-decoration: none; transition: border-color 0.15s, color 0.15s; }
+.featured-bank:hover { border-color: var(--accent); color: #fff; }
 
 /* Pricing */
 .pricing { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 700px; margin: 0 auto; }
@@ -312,30 +318,43 @@ footer .links { display: flex; gap: 24px; justify-content: center; margin-bottom
   <h2 class="section-title">59 Banks Across 26 Countries</h2>
   <div class="section-sub">Every data point extracted from actual Pillar 3 regulatory filings. Not estimates.</div>
   <div class="bank-regions">
-    <span class="region-tag">France (6)</span>
-    <span class="region-tag">United Kingdom (5)</span>
-    <span class="region-tag">United States (7)</span>
-    <span class="region-tag">Germany (2)</span>
-    <span class="region-tag">Spain (3)</span>
-    <span class="region-tag">Italy (2)</span>
-    <span class="region-tag">Netherlands (3)</span>
-    <span class="region-tag">Nordics (5)</span>
-    <span class="region-tag">Japan (3)</span>
-    <span class="region-tag">Australia (4)</span>
-    <span class="region-tag">Canada (3)</span>
-    <span class="region-tag">China (3)</span>
-    <span class="region-tag">India (2)</span>
-    <span class="region-tag">South Korea (2)</span>
-    <span class="region-tag">Singapore</span>
-    <span class="region-tag">Brazil</span>
-    <span class="region-tag">Colombia</span>
-    <span class="region-tag">UAE</span>
-    <span class="region-tag">Qatar</span>
-    <span class="region-tag">Poland</span>
-    <span class="region-tag">Austria</span>
-    <span class="region-tag">Switzerland</span>
-    <span class="region-tag">Belgium</span>
+    <a class="region-tag" href="/countries/france">France</a>
+    <a class="region-tag" href="/countries/united-kingdom">United Kingdom</a>
+    <a class="region-tag" href="/countries/united-states">United States</a>
+    <a class="region-tag" href="/countries/germany">Germany</a>
+    <a class="region-tag" href="/countries/spain">Spain</a>
+    <a class="region-tag" href="/countries/italy">Italy</a>
+    <a class="region-tag" href="/countries/netherlands">Netherlands</a>
+    <a class="region-tag" href="/countries/sweden">Sweden</a>
+    <a class="region-tag" href="/countries/denmark">Denmark</a>
+    <a class="region-tag" href="/countries/japan">Japan</a>
+    <a class="region-tag" href="/countries/australia">Australia</a>
+    <a class="region-tag" href="/countries/canada">Canada</a>
+    <a class="region-tag" href="/countries/china">China</a>
+    <a class="region-tag" href="/countries/switzerland">Switzerland</a>
+    <a class="region-tag" href="/countries/belgium">Belgium</a>
   </div>
+
+  <h3 style="margin-top:36px;margin-bottom:6px;font-size:16px;color:var(--text2);font-weight:600;">Featured bank profiles</h3>
+  <div class="featured-banks">
+    <a class="featured-bank" href="/banks/bnp-paribas">BNP Paribas</a>
+    <a class="featured-bank" href="/banks/hsbc">HSBC</a>
+    <a class="featured-bank" href="/banks/jp-morgan">JP Morgan</a>
+    <a class="featured-bank" href="/banks/deutsche-bank">Deutsche Bank</a>
+    <a class="featured-bank" href="/banks/barclays">Barclays</a>
+    <a class="featured-bank" href="/banks/santander">Santander</a>
+    <a class="featured-bank" href="/banks/societe-generale">Societe Generale</a>
+    <a class="featured-bank" href="/banks/credit-agricole">Credit Agricole</a>
+    <a class="featured-bank" href="/banks/ing-group">ING Group</a>
+    <a class="featured-bank" href="/banks/unicredit">UniCredit</a>
+    <a class="featured-bank" href="/banks/intesa-sanpaolo">Intesa Sanpaolo</a>
+    <a class="featured-bank" href="/banks/bbva">BBVA</a>
+    <a class="featured-bank" href="/banks/ubs">UBS</a>
+    <a class="featured-bank" href="/banks/goldman-sachs">Goldman Sachs</a>
+    <a class="featured-bank" href="/banks/wells-fargo">Wells Fargo</a>
+    <a class="featured-bank" href="/banks/icbc">ICBC</a>
+  </div>
+
   <p style="margin-top:20px;font-size:13px;color:var(--text3);">Data sources: BIS CR6 tables, Pillar 3 disclosures, annual reports. Updated annually.</p>
   <div style="margin-top:18px;">
     <a href="/banks" class="btn btn-outline">Browse all bank profiles &rarr;</a>

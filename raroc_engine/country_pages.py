@@ -16,6 +16,14 @@ from .bank_pages import (
     format_bn,
     _ranked_banks,
 )
+from .seo_helpers import (
+    breadcrumb_jsonld,
+    faq_jsonld,
+    faq_html,
+    FAQ_CSS,
+    last_updated_html,
+    data_last_updated_iso,
+)
 
 
 def all_country_slugs() -> List[str]:
@@ -80,6 +88,49 @@ def render_country_page(country: str) -> Optional[str]:
         f"these banks generate an average RAROC of <strong>{avg_raroc*100:.2f}%</strong>."
     )
 
+    # Schema.org helpers
+    faqs = [
+        (
+            f"How many banks in {country} does OpenRAROC cover?",
+            (
+                f"OpenRAROC tracks {n} banks headquartered in {country}, with a combined corporate "
+                f"credit exposure of {format_bn(total_ead)} reported in their most recent Pillar 3 "
+                f"CR6 disclosures."
+            ),
+        ),
+        (
+            f"Which {country} bank has the tightest corporate credit pricing?",
+            (
+                f"On a representative BBB+ EUR 25M 5-year term loan, {cheapest[1].name} requires the "
+                f"lowest minimum spread to clear a 12% RAROC hurdle ({cheapest[2]['min_spread_bp']:.0f}bp), "
+                f"making it the cheapest lender in the {country} cohort on that specific deal."
+            ),
+        ),
+        (
+            f"What is the average cost-to-income ratio of {country} banks?",
+            (
+                f"The {n} {country} banks in the dataset report an average cost-to-income ratio of "
+                f"{avg_ci*100:.1f}% and an EAD-weighted average corporate probability of default of "
+                f"{avg_pd*100:.2f}%."
+            ),
+        ),
+        (
+            f"How is RAROC calculated for {country} banks?",
+            (
+                "Each bank is priced on the same BBB+ EUR 25M 5-year term loan, using its own "
+                "disclosed cost-to-income, effective tax rate, funding spread, and IRB-approach "
+                "PD/LGD parameters. See the methodology page for the full formula."
+            ),
+        ),
+    ]
+    faq_block = faq_html(faqs, heading=f"FAQ: corporate banking in {country}")
+    faq_ld = faq_jsonld(faqs)
+    breadcrumb_ld = breadcrumb_jsonld([
+        ("Home", "https://openraroc.com/"),
+        ("Banks", "https://openraroc.com/banks"),
+        (country, f"https://openraroc.com/countries/{slug}"),
+    ])
+
     insights = (
         f'<p>On the standard sample deal, <a href="/banks/{slug_for_key(cheapest[0])}"><strong>{cheapest[1].name}</strong></a> '
         f'is the cheapest lender in {country}, requiring just <strong>{cheapest[2]["min_spread_bp"]:.0f}bp</strong> '
@@ -105,7 +156,10 @@ def render_country_page(country: str) -> Optional[str]:
 <meta property="og:title" content="Corporate Banking in {country}: RAROC Comparison">
 <meta property="og:description" content="{description}">
 <meta property="og:site_name" content="OpenRAROC">
-<style>{PAGE_CSS}</style>
+{faq_ld}
+{breadcrumb_ld}
+<meta property="article:modified_time" content="{data_last_updated_iso()}">
+<style>{PAGE_CSS}{FAQ_CSS}</style>
 </head>
 <body>
 {nav_html()}
@@ -113,6 +167,7 @@ def render_country_page(country: str) -> Optional[str]:
   <div class="crumbs"><a href="/">Home</a> / <a href="/banks">Banks</a> / {country}</div>
   <h1>Corporate Banking in {country}</h1>
   <p class="subtitle">RAROC profiles and pricing benchmarks for {n} {country} banks, sourced from Pillar 3 disclosures.</p>
+  {last_updated_html()}
 
   <div class="stat-grid">
     <div class="stat-card">
@@ -166,6 +221,8 @@ def render_country_page(country: str) -> Optional[str]:
   <div class="peer-list">
     {''.join(_other_country_links(country))}
   </div>
+
+  {faq_block}
 </div>
 {footer_html()}
 </body>

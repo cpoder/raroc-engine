@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openraroc"
+version = "2.0.0"
+description = "Open-source RAROC engine for European bank credit pricing (Basel III IRB, single + multi-period)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Cyril Poder" }]
+keywords = ["raroc", "basel-iii", "bank", "credit", "pricing", "treasury", "multi-period"]
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "pydantic>=2.5",
+    "click>=8.1",
+    "rich>=13.0",
+    "fastapi>=0.110",
+    "fpdf2>=2.7",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=0.9"]
+serve = ["uvicorn[standard]>=0.27"]
+
+[project.urls]
+Homepage = "https://openraroc.com"
+
+[tool.setuptools]
+packages = ["raroc_engine"]
+
+[tool.setuptools.package-data]
+raroc_engine = [
+    "static/*.html",
+    "static/*.css",
+    "static/*.js",
+    "data/curves/*.csv",
+    "data/curves/*.md",
+]

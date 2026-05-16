@@ -387,3 +387,214 @@ The formulas implemented follow:
 | Target RAROC | 12% | Bank's hurdle rate |
 
 All parameters are configurable per calculation.
+
+---
+
+## 16. Multi-Period Engine (v2.0)
+
+Sections 1–15 above describe the **single-period** engine: one row of inputs (commitment, drawn, spread, rating, residual maturity, GRR) produces one RAROC figure that summarises the deal's profitability *at a single point in time*.
+
+Real facilities aren't single periods. A 7-year amortising loan repays principal every year, so its FPE shrinks over time. A 5-year RCF "cleans down" mid-life as the borrower's working-capital needs taper. A project-finance facility ramps up, sits in grace, amortises, then leaves a bullet. The single-period engine cannot model any of this — it sees only the day-1 snapshot.
+
+The **multi-period engine** (`raroc_engine.period_engine.PeriodEngine`, added in v2.0) walks a `Schedule` of `Period` rows and runs the single-period math on each one, then aggregates the results into the headline metrics a corporate treasurer or advisor actually needs: NPV of borrower cost, NPV of bank net margin, effective spread, capital-weighted RAROC.
+
+### 16.1 Schedule and Period
+
+```python
+from raroc_engine import Schedule, Period, PeriodEngine
+
+schedule = Schedule.scheduled_amortising_term_loan(
+    initial_drawn=70_000_000,
+    total_years=7,
+    start=date(2026, 1, 1),
+    upfront_fee=350_000,
+)
+```
+
+A `Schedule` is the time-varying companion to a `RAROCInput`. The deal carries the **static** facets (rating, product, spread, commit fee, GRR). The schedule carries the **time-varying** facets per period:
+
+| Field | Meaning |
+|-------|---------|
+| `index` | 1-based period number |
+| `start`, `end` | Period boundaries (`date` objects) |
+| `dt_years` | Length of the period in years (e.g. 1.0 annual, 0.25 quarterly) |
+| `commitment` | Committed amount during the period |
+| `avg_drawn` | Average drawn balance during the period |
+| `remaining_maturity_years` | Contractual residual maturity at period start |
+| `upfront_fee`, `flat_fee`, `participation_fee` | Period-allocated fees |
+| `floating_index`, `fixing_rate` | Optional curve index + fixing for floating periods |
+
+### 16.2 Schedule shapes
+
+Five constructors cover the common term-sheet shapes:
+
+| Shape | Use case |
+|-------|----------|
+| `Schedule.single_period(...)` | Length-1 schedule with `dt=1.0` — back-compat hinge |
+| `Schedule.from_raroc_input(inp, start=...)` | Auto-bridge from an existing `RAROCInput` |
+| `Schedule.bullet_rcf_with_cleandown(commitment, drawn_levels, ...)` | RCF — constant commit, stepped drawn |
+| `Schedule.scheduled_amortising_term_loan(initial_drawn, total_years, ...)` | Linear-amortising term loan |
+| `Schedule.drawdown_ramp_with_grace(...)` | Project-finance shape: ramp → grace → amortise → bullet |
+| `Schedule.project_finance_milestones(commitment, milestones, ...)` | Generic `[(avg_drawn, n_years), …]` |
+
+All shapes funnel through `Schedule._build_annual` which fills `remaining_maturity_years = (n - i + 1)` for an annual schedule.
+
+### 16.3 The per-period loop
+
+For each period the engine:
+
+1. Builds a synthetic `RAROCInput` carrying the period's `commitment` (as `average_volume`), `avg_drawn` (as `average_drawn`), and `remaining_maturity_years × 12` (as `residual_maturity`), copying static deal fields verbatim.
+2. Calls `RAROCCalculator.calculate(period_input)` — the same single-period code path as v1 — to get the baseline `RAROCOutput`.
+3. **Rescales** the dt-dependent fields by `period.dt_years` (see §16.4).
+4. Computes the period's `RAROC` from the rescaled numerator + the baseline FPE.
+5. Records the residual maturity, the discount factor `DF = (1 + r)^(-t_end)`, and the PVs the aggregates need.
+
+This construction guarantees the **back-compat contract** by construction: a single-period schedule with `dt = 1.0` reproduces the v1 `RAROCCalculator.calculate` output to 1e-12 on every field (spec §9; test: `tests/test_period_engine.py::test_single_period_parity`).
+
+### 16.4 dt-scaling convention
+
+Some quantities are **accruals** that scale linearly with the period length (a half-year accrues half the revenue). Others are **bookings** that don't scale (an upfront fee of EUR 200k is paid once regardless of period length). The engine handles them differently:
+
+| Quantity | Scales by `dt`? | Why |
+|----------|-----------------|-----|
+| Spread × drawn (interest) | ✅ | Accrual: 6 months of spread = ½ × annual amount |
+| Commitment fee × undrawn | ✅ | Accrual on the undrawn |
+| Funding cost (`funding_cost_bp × EAD`) | ✅ | Bank's marginal funding accrues over time |
+| Expected loss (`EAD × PD_basel`) | ✅ | Annualised loss expectation, prorated |
+| FPE return (`r × FPE`) | ✅ | Return on capital held during the period |
+| `upfront_fee`, `flat_fee`, `participation_fee` | ❌ | Bookings paid at term-sheet level, not accruals |
+| FPE itself (`EAD × K`) | ❌ | Stock measurement, not a flow |
+| Risk weight K, asset correlation R, maturity adj b | ❌ | Calibration parameters, not flows |
+
+The cost-to-income ratio is **preserved** from the single-period calculator's resolved value: `cost_period = revenue_period × (calc.cost / calc.revenue)`. This means a product-specific override (e.g. 75% for derivatives) carries through the multi-period loop unchanged.
+
+### 16.5 Aggregates (§7 of the spec)
+
+After walking the schedule the engine builds wallet-grade aggregates (`raroc_engine.aggregate.FacilityAggregates`):
+
+```
+npv_borrower_cost     = Σ revenue_i × DF_i        (PV of what the borrower pays the bank)
+npv_bank_net_margin   = Σ net_margin_i × DF_i     (PV of the bank's after-cost return)
+npv_bank_costs        = Σ (cost_i + funding_i + EL_i) × DF_i
+npv_drawn_balance     = Σ avg_drawn_i × dt_i × DF_i
+
+total_revenue_undisc  = Σ revenue_i
+total_el_undisc       = Σ el_i
+
+effective_spread      = npv_borrower_cost / npv_drawn_balance
+                       (the flat constant spread on a bullet facility
+                        economically equivalent to the schedule)
+
+avg_raroc             = Σ raroc_i × dt_i / Σ dt_i        (time-weighted)
+capital_weighted_raroc = Σ raroc_i × fpe_i × dt_i
+                       / Σ fpe_i × dt_i                 (= spec §7 fpe_weighted_raroc)
+
+fpe_years             = Σ fpe_i × dt_i                  (wallet capital-usage proxy)
+```
+
+The **effective spread** is the headline number for cross-deal comparison: it tells a treasurer "this 5y RCF with cleandown costs you the same as a 182.2bp flat-spread bullet loan would" — useful when banks quote different shapes on the same underlying credit.
+
+The **capital-weighted RAROC** matches what the bank's relationship banker actually sees: the periods that consume the most capital × time dominate the average.
+
+### 16.6 Tolerances
+
+| Metric | Tolerance |
+|--------|-----------|
+| Per-period RAROC | 0.5 bp absolute |
+| NPV totals | 0.1% relative |
+| Effective spread | 0.5 bp absolute |
+| Single-period parity (dt=1.0 length-1 schedule vs v1 calculator) | 1e-12 absolute |
+
+See `docs/engine/multiperiod-spec.md` §10 and the three golden fixtures under `tests/fixtures/period_*.yaml`.
+
+---
+
+## 17. Discount-Rate Convention (D-0003)
+
+The multi-period engine discounts every period's cash flow to present value with a per-period factor `DF_i = (1 + r_i)^(-t_end_i)`, Act/365F discrete annual. The discount rate `r_i` comes from a `DiscountSpec`:
+
+```python
+from raroc_engine import DiscountSpec
+discount = DiscountSpec(kind="scalar", rate=0.0325)
+```
+
+### 17.1 Three shapes
+
+| `kind` | Behavior | When to use |
+|--------|----------|-------------|
+| `scalar` | A single rate for every period | Default. Engine config's `risk_free_rate` (3.25% EUR mid-swap by default). |
+| `curve` | Look up by curve name against a `CurveRepository` | Risk-free curve in the deal currency (EUR/USD/GBP) — the recommended default in production. |
+| `schedule` | `[(date, rate), …]` linearly interpolated | Advisor flows: discount a corporate borrower's facilities at *their own WACC* curve instead of risk-free. |
+
+### 17.2 Floating-rate fallback cascade
+
+When a period carries a `floating_index` (e.g. `EURIBOR_3M`, `SOFR`, `SONIA`) but no `fixing_rate`, the engine resolves the fixing through the D-0003 cascade in `CurveRepository.fix`:
+
+| Tier | Cascade level | Status flag |
+|------|---------------|-------------|
+| 1 | Fresh — fixing ≤24h old | `fresh` |
+| 2 | Stale — fixing 24h–7d old | `stale` |
+| 3 | Interpolated — neighbour tenors only | `interpolated` |
+| 4 | Scalar fallback — engine config `risk_free_rate` (3.25% default) | `scalar_fallback` |
+| 5 | Unknown index name — raises `CurveDataUnavailable` | (exception) |
+
+The engine **never crashes** on a missing curve point: tiers 1–4 always produce a fixing. Only an unrecognised index name (a typo in a YAML fixture, say) raises.
+
+The worst-tier seen across all periods rolls up to `engine_meta["curve_status"]` so the App's UI can badge the answer ("3 periods used stale fixings — refresh the curve table").
+
+### 17.3 Discount choice — bank vs advisor view
+
+The same multi-period engine output can be re-discounted at a different rate by calling `aggregate.attach_discount_factors(rows, new_discount)` and then `aggregate_periods(rows)` again. Two conventions:
+
+- **Bank view (risk-free, default)**: NPVs reflect the present value of cash flows discounted at the bank's funding-equivalent rate. The bank's hurdle rate is applied implicitly via the `target_raroc` parameter.
+- **Advisor / borrower view (WACC)**: NPVs reflect the present value to the borrower of paying the facility's cash flows out of their own equity. Pass a `kind="schedule"` `DiscountSpec` with the borrower's WACC term structure.
+
+The `effective_spread` aggregate is **scale-invariant** under uniform rate shifts: scaling every `DF_i` by a constant cancels out in `revenue_pv / drawn_pv`. So advisor-vs-bank NPV totals differ but the effective-spread number is robust across choices.
+
+### 17.4 Configuration follow-ups
+
+This source policy applies the operational policy: ECB / BoE / Fed daily pulls; paid feeds only on written customer ask; live curve table populated by `scripts/refresh_curves.py`. Phase 1 ships flat CSVs in `raroc_engine/data/curves/`; the Postgres-backed curve table (F-10, F-11) lands in Phase 2 Q2.
+
+---
+
+## 18. Migrating from v1 to v2
+
+The v1 single-period API (`RAROCCalculator`, `RAROCInput`, `RAROCOutput`, reverse solver, bank comparison, CLI `calc` subcommand) is **unchanged** in v2.0. Existing v1 callers keep working byte-for-byte. New code can opt into the multi-period engine.
+
+### Minimal v2 example
+
+```python
+from datetime import date
+from raroc_engine import (
+    EngineConfig, PeriodEngine, RAROCInput, Schedule, DiscountSpec,
+)
+
+deal = RAROCInput(
+    product_type="mlt_credit",
+    rating="Baa1",
+    spread=0.0200,        # 200bp
+    commitment_fee=0.0025,
+    confirmed=True,
+)
+schedule = Schedule.scheduled_amortising_term_loan(
+    initial_drawn=70_000_000,
+    total_years=7,
+    start=date(2026, 1, 1),
+    upfront_fee=350_000,
+)
+engine = PeriodEngine(config=EngineConfig())
+output = engine.run(deal, schedule, DiscountSpec(rate=0.0325))
+
+print(f"Effective spread: {output.aggregates['effective_spread_bp']:.1f}bp")
+print(f"Capital-weighted RAROC: {output.aggregates['fpe_weighted_raroc']:.2%}")
+```
+
+### CLI shortcuts
+
+```bash
+openraroc period tests/fixtures/period_rcf_5y.yaml         # rich tables
+openraroc period tests/fixtures/period_rcf_5y.yaml --json  # JSON
+openraroc --schedule tests/fixtures/period_rcf_5y.yaml     # top-level shortcut
+```
+
+See `CHANGELOG.md` for the full v2.0 release notes.

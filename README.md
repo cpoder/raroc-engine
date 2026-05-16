@@ -80,6 +80,10 @@ raroc_engine/
 - **Bank profiles**: Public Pillar 3 CR6 tables extracted from regulatory filings
 - **Basel III formulas**: BIS CRE31/CRE32 (verified against official standards)
 
+## Engine vs App
+
+OpenRAROC (this repo) is the engine and the free / EUR 49-per-year calculator. A larger CFO-facing app called **Credenda** is built on top of it at <https://credenda.io>. Credenda uses the OpenRAROC engine underneath and exposes it through three buyer-language modules (*Term-Sheet Doctor*, *Wallet*, *Next Move*) — no RAROC vocabulary in the UI. The two products are intentionally separate: OpenRAROC stays as the developer / power-user surface, Credenda is the Pro/Enterprise SKU for CFOs and advisors.
+
 ## License
 
 MIT for the engine code. Premium bank data is licensed separately.

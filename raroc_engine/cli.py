@@ -2,6 +2,7 @@
 
 import sys
 import csv
+import json
 import os
 from typing import Optional
 import click
@@ -24,6 +25,8 @@ from .models import (
 from .repository import Repository
 from .config import EngineConfig
 from .calculator import RAROCCalculator
+from .period_engine import DiscountSpec, PeriodEngine
+from .schedule import Schedule
 
 console = Console()
 
@@ -258,18 +261,34 @@ def display_sensitivity(
 
 # ── CLI Commands ──────────────────────────────────────────────────
 
-@click.group()
+@click.group(invoke_without_command=True)
 @click.option("--regime", type=click.Choice(["basel2", "basel3"]), default="basel3",
               help="Regulatory regime (default: basel3)")
+@click.option("--schedule", "schedule_file", type=click.Path(exists=True), default=None,
+              help="Run the multi-period engine on this YAML schedule fixture "
+                   "(equivalent to `openraroc period <file>`). v2.0+.")
+@click.option("--json", "as_json", is_flag=True, default=False,
+              help="Used with --schedule: emit JSON instead of rich tables.")
 @click.pass_context
-def cli(ctx, regime):
+def cli(ctx, regime, schedule_file, as_json):
     """RAROC Engine - Risk-Adjusted Return on Capital Calculator.
 
     Modern Python implementation with Basel II and Basel III/IV support.
     Rebuilt from the BFinance Java application (2007).
+
+    v2.0 adds the multi-period engine: use the `period` subcommand or the
+    top-level `--schedule FILE` shortcut to walk a facility's life through
+    the per-period RAROC loop with NPV / effective-spread aggregates.
     """
     ctx.ensure_object(dict)
     ctx.obj["regime"] = regime
+
+    if schedule_file:
+        _run_period_fixture(schedule_file, regime=regime, as_json=as_json)
+        return
+
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
 
 
 @cli.command()
@@ -479,6 +498,30 @@ def calc(ctx, product, avg_drawn, avg_volume, spread, commit_fee, flat_fee,
 
     console.print(f"\n[dim]Regime: {regime.upper()}[/dim]")
     display_result(out, inp, repo.settings)
+
+
+@cli.command("period")
+@click.argument("schedule_file", type=click.Path(exists=True))
+@click.option("--json", "as_json", is_flag=True, default=False,
+              help="Emit JSON instead of rich tables.")
+@click.pass_context
+def period_cmd(ctx, schedule_file, as_json):
+    """Run the multi-period engine on a YAML schedule fixture (v2.0+).
+
+    \b
+    The fixture format mirrors tests/fixtures/period_*.yaml:
+      - engine_config:   EngineConfig overrides (regime, risk_free_rate, ...)
+      - deal:            static RAROCInput fields (rating, product, spread, ...)
+      - schedule:        type / day_count / list of periods
+      - discount:        DiscountSpec (kind / rate / day_count)
+
+    Prints a per-period RAROC table + the wallet-grade aggregates
+    (NPV borrower cost, NPV bank net margin, effective spread,
+    FPE-weighted RAROC, ...). With --json the engine output ships
+    as a single JSON object (per_period + aggregates + meta).
+    """
+    regime = ctx.obj["regime"]
+    _run_period_fixture(schedule_file, regime=regime, as_json=as_json)
 
 
 @cli.command()
@@ -841,6 +884,181 @@ def solve_cmd(ctx, product, avg_drawn, avg_volume, spread, commit_fee, flat_fee,
         console.print(answer)
         console.print()
         display_result(out, result["input"], repo.settings, f"Deal at {solved_grr:.0%} GRR")
+
+
+# ── Multi-period helpers (v2.0) ───────────────────────────────────
+
+def _run_period_fixture(path: str, *, regime: str, as_json: bool) -> None:
+    """Load a YAML schedule fixture and run it through :class:`PeriodEngine`.
+
+    Used by both `openraroc period <file>` and the `--schedule FILE`
+    top-level shortcut. The fixture format matches the Q1 golden
+    fixtures under ``tests/fixtures/period_*.yaml``.
+    """
+    try:
+        import yaml
+    except ImportError:
+        console.print(
+            "[red]Missing dependency:[/red] PyYAML. Install with: pip install pyyaml"
+        )
+        sys.exit(1)
+
+    with open(path) as f:
+        fx = yaml.safe_load(f)
+
+    # The fixture's engine_config can override regime; otherwise inherit
+    # the CLI flag. Match the test loader so behavior is identical.
+    cfg_block = dict(fx.get("engine_config") or {})
+    cfg_block.setdefault("regime", regime)
+    cfg = EngineConfig.from_dict(cfg_block)
+
+    deal_block = fx.get("deal") or {}
+    deal = RAROCInput(
+        product_type=deal_block.get("product_type", "mlt_credit"),
+        rating=deal_block.get("rating", "Baa1"),
+        global_grr=float(deal_block.get("global_grr", 0.0)),
+        confirmed=bool(deal_block.get("confirmed", True)),
+        spread=float(deal_block.get("spread", 0.0)),
+        commitment_fee=float(deal_block.get("commitment_fee", 0.0)),
+        flat_fee=float(deal_block.get("flat_fee", 0.0)),
+        participation_fee=float(deal_block.get("participation_fee", 0.0)),
+        upfront_fee=float(deal_block.get("upfront_fee", 0.0)),
+        collateral_stress_value=float(deal_block.get("collateral_stress_value", 0.0)),
+        bank=deal_block.get("bank", ""),
+        operation=deal_block.get("operation", fx.get("fixture_id", "")),
+    )
+
+    schedule = Schedule.from_dict(fx["schedule"])
+
+    disc_block = dict(fx.get("discount") or {"kind": "scalar", "rate": cfg.risk_free_rate})
+    discount = DiscountSpec(
+        kind=disc_block.get("kind", "scalar"),
+        rate=float(disc_block.get("rate", cfg.risk_free_rate)),
+        day_count=disc_block.get("day_count", "Act/365F"),
+    )
+
+    engine = PeriodEngine(config=cfg)
+    out = engine.run(deal, schedule, discount)
+
+    if as_json:
+        payload = {
+            "fixture_id": fx.get("fixture_id", os.path.basename(path)),
+            "engine_meta": out.engine_meta,
+            "discount_meta": out.discount_meta,
+            "aggregates": out.aggregates,
+            "per_period": [
+                {
+                    "index": r.index,
+                    "start": r.start.isoformat(),
+                    "end": r.end.isoformat(),
+                    "dt_years": r.dt_years,
+                    "commitment": r.commitment,
+                    "avg_drawn": r.avg_drawn,
+                    "remaining_maturity_years": r.remaining_maturity_years,
+                    "revenue": r.revenue,
+                    "cost": r.cost,
+                    "funding_cost": r.funding_cost,
+                    "exposure": r.exposure,
+                    "fpe": r.fpe,
+                    "el": r.el,
+                    "K": r.K,
+                    "net_margin": r.net_margin,
+                    "raroc": r.raroc,
+                    "principal_repayment": r.principal_repayment,
+                    "t_end_years": r.t_end_years,
+                    "df": r.df,
+                    "revenue_pv": r.revenue_pv,
+                    "net_margin_pv": r.net_margin_pv,
+                    "drawn_pv": r.drawn_pv,
+                    "floating_index": r.floating_index,
+                    "fixing_rate": r.fixing_rate,
+                    "all_in_rate": r.all_in_rate,
+                    "curve_status": r.curve_status,
+                }
+                for r in out.per_period
+            ],
+        }
+        click.echo(json.dumps(payload, indent=2, default=str))
+        return
+
+    _display_period_engine_output(fx, deal, out, regime)
+
+
+def _display_period_engine_output(fx: dict, deal: RAROCInput, out, regime: str) -> None:
+    """Render the per-period table + aggregates panel for `openraroc period`."""
+    fixture_id = fx.get("fixture_id", "")
+    description = fx.get("description", "")
+
+    # Header
+    header = Table(box=box.SIMPLE_HEAD, show_header=False, padding=(0, 2))
+    header.add_column(style="bold cyan", width=22)
+    header.add_column(width=60)
+    if fixture_id:
+        header.add_row("Fixture", fixture_id)
+    if description:
+        header.add_row("Description", description)
+    sp = MOODYS_TO_SP.get(deal.rating, "")
+    header.add_row("Product / Rating", f"{deal.product_type} | {deal.rating}" + (f" / {sp}" if sp else ""))
+    header.add_row("Regime", regime.upper())
+    header.add_row("Periods", f"{out.engine_meta['n_periods']} ({out.engine_meta['total_years']:.1f}y total)")
+    header.add_row("Spread / Commit", f"{deal.spread*10000:.0f}bp / {deal.commitment_fee*10000:.0f}bp")
+    if out.discount_meta:
+        header.add_row(
+            "Discount",
+            f"{out.discount_meta['rate_used']:.4%} ({out.discount_meta['curve_status']})",
+        )
+    if "curve_status" in out.engine_meta:
+        header.add_row("Floating curves", out.engine_meta["curve_status"])
+    console.print()
+    console.print(Panel(header, title="[bold]Multi-Period RAROC[/bold]", border_style="cyan"))
+
+    # Per-period table
+    pp = Table(
+        title="Per-Period RAROC",
+        box=box.ROUNDED,
+        padding=(0, 1),
+        show_header=True,
+    )
+    pp.add_column("#", style="dim", width=3)
+    pp.add_column("Period", width=22)
+    pp.add_column("Commit", justify="right", width=12)
+    pp.add_column("Drawn", justify="right", width=12)
+    pp.add_column("Revenue", justify="right", width=12)
+    pp.add_column("EL", justify="right", width=10)
+    pp.add_column("FPE", justify="right", width=12)
+    pp.add_column("DF", justify="right", width=8)
+    pp.add_column("RAROC", justify="right", width=10)
+    for r in out.per_period:
+        pp.add_row(
+            str(r.index),
+            f"{r.start.isoformat()} → {r.end.isoformat()}",
+            fmt_num(r.commitment),
+            fmt_num(r.avg_drawn),
+            fmt_num(r.revenue),
+            fmt_num(r.el),
+            fmt_num(r.fpe),
+            f"{r.df:.4f}",
+            f"[{raroc_color(r.raroc)}]{r.raroc:.2%}[/]",
+        )
+    console.print(pp)
+
+    # Aggregates panel
+    agg = out.aggregates
+    a_tbl = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
+    a_tbl.add_column(style="bold", width=32)
+    a_tbl.add_column(justify="right", width=22)
+    a_tbl.add_row("NPV borrower cost", fmt_num(agg["npv_borrower_cost"], 2))
+    a_tbl.add_row("NPV bank net margin", fmt_num(agg["npv_bank_net_margin"], 2))
+    a_tbl.add_row("NPV bank costs", fmt_num(agg.get("npv_bank_costs", 0.0), 2))
+    a_tbl.add_row("NPV drawn balance", fmt_num(agg["npv_drawn_balance"]))
+    a_tbl.add_row("Total revenue (undisc)", fmt_num(agg["total_revenue_undisc"]))
+    a_tbl.add_row("Total EL (undisc)", fmt_num(agg["total_el_undisc"]))
+    a_tbl.add_row("Effective spread", f"{agg['effective_spread_bp']:.1f}bp")
+    a_tbl.add_row("Capital-weighted RAROC", f"{agg['fpe_weighted_raroc']:.2%}")
+    a_tbl.add_row("Time-weighted RAROC", f"{agg.get('avg_raroc', 0.0):.2%}")
+    a_tbl.add_row("FPE-years (Σ FPE × dt)", fmt_num(agg.get("fpe_years", 0.0)))
+    console.print(Panel(a_tbl, title="[bold]Wallet Aggregates[/bold]", border_style="green"))
+    console.print()
 
 
 # ── Output writers ────────────────────────────────────────────────

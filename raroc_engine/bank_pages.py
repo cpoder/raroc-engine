@@ -17,9 +17,13 @@ from .repository import Repository
 from .models import RAROCInput
 from .bank_commentary import generate_commentary
 from .seo_helpers import (
+    article_jsonld,
     breadcrumb_jsonld,
+    credenda_cta_url,
+    credenda_ref,
     faq_jsonld,
     faq_html,
+    howto_jsonld,
     FAQ_CSS,
     last_updated_html,
     data_last_updated,
@@ -598,3 +602,669 @@ def render_banks_index() -> str:
 {footer_html()}
 </body>
 </html>"""
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Transactional pages (Task 3.9)
+# ═══════════════════════════════════════════════════════════════════
+#
+# These pages sit one level below /banks/{slug} and answer a specific
+# buyer-intent question for a single bank:
+#
+#   /banks/{slug}/renegotiate-rcf       — "Renegotiate your {bank} RCF"
+#   /banks/{slug}/term-loan-fair-price  — "Is your {bank} term loan fairly priced?"
+#
+# Each page reuses the bank's Pillar 3 numbers and runs a fresh sample
+# RAROC deal that matches the intent (revolver versus amortising term
+# loan), so the answer is data-grounded rather than copy-spun. The
+# conversion is always Credenda (the App), reached through a ref-tagged
+# CTA so the funnel can be measured (D-0032).
+
+
+# ── Cross-bank cohort benchmark for one sample deal ──────────────────
+
+@lru_cache(maxsize=8)
+def _cohort_for_deal(sample_deal_key: str) -> Tuple[float, float, float, int]:
+    """Compute P25/P50/P75/N min-spread across all banks for a sample deal.
+
+    ``sample_deal_key`` is one of the registry keys in ``_SAMPLE_DEALS``
+    so the result is cacheable and the function can be called per
+    bank-page render without re-running 59 calculators every time.
+    """
+    deal = _SAMPLE_DEALS[sample_deal_key]
+    spreads_bp: List[float] = []
+    for key, profile in BANK_PROFILES.items():
+        try:
+            repo = Repository()
+            cfg = EngineConfig(
+                regime="basel3",
+                bank_tax_rate=profile.effective_tax_rate,
+                funding_cost_bp=profile.funding_spread_bp,
+            )
+            calc = RAROCCalculator(repo, cfg)
+            solve = calc.solve_spread(RAROCInput(**deal), target_raroc=cfg.target_raroc)
+            spreads_bp.append(float(solve["solved_spread_bp"]))
+        except Exception:
+            continue
+    n = len(spreads_bp)
+    if n == 0:
+        return (0.0, 0.0, 0.0, 0)
+    spreads_bp.sort()
+
+    def _pct(p: float) -> float:
+        # linear-interpolation quantile, no numpy dependency in callers
+        if n == 1:
+            return spreads_bp[0]
+        k = (n - 1) * p
+        lo = int(k)
+        hi = min(lo + 1, n - 1)
+        frac = k - lo
+        return spreads_bp[lo] + (spreads_bp[hi] - spreads_bp[lo]) * frac
+
+    return (_pct(0.25), _pct(0.50), _pct(0.75), n)
+
+
+def _calc_for_sample(profile: BankProfile, sample_deal_key: str) -> dict:
+    """Run a named sample deal against one bank's parameters."""
+    deal = _SAMPLE_DEALS[sample_deal_key]
+    repo = Repository()
+    cfg = EngineConfig(
+        regime="basel3",
+        bank_tax_rate=profile.effective_tax_rate,
+        funding_cost_bp=profile.funding_spread_bp,
+    )
+    calc = RAROCCalculator(repo, cfg)
+    inp = RAROCInput(**deal)
+    out = calc.calculate(inp)
+    solve = calc.solve_spread(RAROCInput(**deal), target_raroc=cfg.target_raroc)
+    return {
+        "raroc": out.raroc,
+        "revenue": out.revenue,
+        "cost": out.cost,
+        "expected_loss": out.average_loss,
+        "fpe": out.fpe,
+        "exposure": out.exposure,
+        "min_spread_bp": float(solve["solved_spread_bp"]),
+    }
+
+
+# ── Sample deals (one per intent) ───────────────────────────────────
+#
+# Both shapes are "representative mid-corp" so that a CFO clicking
+# through can recognise their own term sheet without us pretending to
+# price it. The numbers are stylised but conservative.
+
+_SAMPLE_DEALS: Dict[str, dict] = {
+    "rcf_bbb_50m_5y": dict(
+        product_type="mlt_credit",
+        operation="Sample BBB+ Revolver",
+        bank="",
+        average_drawn=25_000_000,        # 50% drawn on a 50M RCF
+        average_volume=50_000_000,
+        initial_maturity=60,
+        residual_maturity=60,
+        spread=0.0175,                   # 175bp drawn margin
+        commitment_fee=0.0030,           # 30bp commitment
+        flat_fee=0,
+        participation_fee=0,
+        upfront_fee=0,
+        user_cost=None,
+        rating="BBB+",
+        confirmed=True,
+        global_grr=0,
+        collateral_stress_value=0,
+    ),
+    "term_loan_bbb_25m_5y": dict(
+        product_type="mlt_credit",
+        operation="Sample BBB+ Term Loan",
+        bank="",
+        average_drawn=25_000_000,
+        average_volume=25_000_000,
+        initial_maturity=60,
+        residual_maturity=60,
+        spread=0.0150,                   # 150bp
+        commitment_fee=0,                # term loans don't carry a commitment fee
+        flat_fee=0,
+        participation_fee=0,
+        upfront_fee=0,
+        user_cost=None,
+        rating="BBB+",
+        confirmed=True,
+        global_grr=0,
+        collateral_stress_value=0,
+    ),
+}
+
+
+# ── Intent registry ─────────────────────────────────────────────────
+
+TRANSACTIONAL_INTENTS: Dict[str, dict] = {
+    "renegotiate-rcf": {
+        "slug": "renegotiate-rcf",
+        "sample_deal_key": "rcf_bbb_50m_5y",
+        "product_label": "revolving credit facility (RCF)",
+        "product_short": "RCF",
+        "deal_caption": (
+            "EUR 50M BBB+ revolving credit facility, 5-year tenor, "
+            "50% average utilisation (EUR 25M drawn), 175bp drawn margin, 30bp commitment fee."
+        ),
+        "title": "Renegotiate your {bank} RCF: spread benchmark from Pillar 3 data | OpenRAROC",
+        "h1": "Renegotiate your {bank} RCF",
+        "subtitle": (
+            "Where the bank's fair-price floor actually sits — and how much room "
+            "you have to push on spread and commitment fee."
+        ),
+        "intent_kicker": "Renegotiation",
+        "meta_description": (
+            "Renegotiating a {bank} revolver? See the fair-price floor on a benchmark "
+            "BBB+ RCF using {bank}'s own Pillar 3 numbers. Free engine, instant assessment."
+        ),
+        "intro_para": (
+            "{bank} prices revolvers off a small number of public inputs — cost-to-income, "
+            "effective tax rate, average corporate PD, LGD bands, and IRB approach. "
+            "Plug those into the RAROC equation against a benchmark BBB+ RCF and you get the "
+            "spread + commitment-fee combination the bank actually needs to clear its hurdle. "
+            "If your facility is meaningfully above that floor, you have room to renegotiate."
+        ),
+        "mechanic_para": (
+            "RCF pricing has two moving parts: the drawn margin and the commitment fee on the "
+            "undrawn portion. Banks calibrate them jointly so that, at an expected utilisation, "
+            "the combined revenue clears their RAROC hurdle. When utilisation falls below "
+            "underwriting assumption, the commitment fee becomes the load-bearing part of the "
+            "price. Renegotiation conversations almost always need to touch both — pushing only "
+            "on drawn margin while the commitment fee stays high leaves money on the table."
+        ),
+        "cta_headline": "Get the fair-price floor on your {bank} RCF in 90 seconds",
+        "cta_body": (
+            "Paste your term sheet into Credenda's Term-Sheet Doctor. It re-runs the OpenRAROC "
+            "engine against {bank}'s Pillar 3 numbers, scores the deal P25/P50/P75 across the "
+            "peer cohort, and flags every clause that's worth pushing back on."
+        ),
+        "cta_button": "Open Term-Sheet Doctor",
+        "howto_steps": [
+            ("Read the bank's fair-price floor",
+             "Use the sample RAROC calculation below — it shows the minimum spread {bank} "
+             "needs on a benchmark BBB+ EUR 50M RCF to clear its 12% RAROC hurdle, given its "
+             "disclosed cost-to-income and tax rate."),
+            ("Compare against your existing pricing",
+             "If your drawn margin + commitment fee combination is above this floor, you have "
+             "room. The further above P50 you sit on the cohort comparison, the larger the "
+             "realistic ask."),
+            ("Run your actual term sheet through Credenda's Term-Sheet Doctor",
+             "Upload or paste your facility terms. Credenda projects the deal economics from "
+             "{bank}'s perspective, returns a Below / At / Above market verdict, and proposes "
+             "the specific clauses to renegotiate."),
+            ("Open the renegotiation conversation with public numbers",
+             "Bring the OpenRAROC calculation and Credenda's verdict to your relationship "
+             "banker. Both are sourced from {bank}'s own public filings, so the conversation "
+             "stays on solid ground."),
+        ],
+    },
+    "term-loan-fair-price": {
+        "slug": "term-loan-fair-price",
+        "sample_deal_key": "term_loan_bbb_25m_5y",
+        "product_label": "term loan",
+        "product_short": "term loan",
+        "deal_caption": (
+            "EUR 25M BBB+ amortising term loan, 5-year tenor, fully drawn, 150bp spread, "
+            "no commitment fee."
+        ),
+        "title": "Is your {bank} term loan fairly priced? Pillar 3 benchmark | OpenRAROC",
+        "h1": "Is your {bank} term loan fairly priced?",
+        "subtitle": (
+            "An independent spread benchmark on a BBB+ EUR 25M 5-year term loan, "
+            "derived from {bank}'s own Pillar 3 disclosures."
+        ),
+        "intent_kicker": "Pricing check",
+        "meta_description": (
+            "Wondering if your {bank} term loan is at, above or below market? Use {bank}'s "
+            "Pillar 3 numbers to derive the fair spread floor on a benchmark BBB+ 5-year "
+            "term loan. Free OpenRAROC engine."
+        ),
+        "intro_para": (
+            "Term-loan pricing is simpler than revolver pricing: one spread, no commitment "
+            "fee, no utilisation-curve noise. That makes the fair-price question crisp. "
+            "{bank} needs the deal to clear its RAROC hurdle, and the inputs that determine "
+            "that — cost-to-income, effective tax rate, average corporate PD, LGD bands — "
+            "are all public. The number you see below is the spread the bank actually needs."
+        ),
+        "mechanic_para": (
+            "When the market quotes 'a 150bp deal' on a BBB+ name, that's a starting point. "
+            "Whether 150bp is fair depends on the lender — a bank with higher funding cost or "
+            "a heavier cost-to-income ratio needs more spread to clear the same hurdle. A "
+            "fair-price benchmark anchored on {bank}'s own disclosures cuts through the "
+            "noise. If your facility sits below P50 on the cohort, you're priced sharply. "
+            "Above P75, the bank is over-earning on you."
+        ),
+        "cta_headline": "Get a fair-price verdict on your {bank} term loan in 90 seconds",
+        "cta_body": (
+            "Upload or paste your term-sheet into Credenda's Term-Sheet Doctor. It returns "
+            "a Below / At / Above market verdict, the exact spread that would put you on "
+            "the P50 line, and the specific clauses worth renegotiating before signing."
+        ),
+        "cta_button": "Open Term-Sheet Doctor",
+        "howto_steps": [
+            ("Look up the bank's fair-price floor below",
+             "The sample RAROC calculation shows the minimum spread {bank} needs on a "
+             "benchmark BBB+ 25M 5-year term loan to clear its 12% hurdle, using its own "
+             "disclosed inputs."),
+            ("Locate your facility on the cohort distribution",
+             "P25 / P50 / P75 across all banks tells you where the market sits. If your "
+             "spread is at the bank's floor, you're priced sharply; closer to P75 means "
+             "you're paying for the bank's profitability."),
+            ("Run your actual term sheet through Credenda's Term-Sheet Doctor",
+             "Drop the PDF in. Credenda extracts the terms, re-runs the engine against "
+             "{bank}, and returns a verdict plus a list of clauses worth pushing back on."),
+            ("Use the verdict in the term-sheet conversation",
+             "Whether the verdict is Above or Below market, the underlying numbers come "
+             "from {bank}'s public filings. Bring them to your relationship banker as the "
+             "anchor for the conversation."),
+        ],
+    },
+}
+
+
+def all_transactional_intent_slugs() -> List[str]:
+    return list(TRANSACTIONAL_INTENTS.keys())
+
+
+def all_transactional_pages() -> List[Tuple[str, str]]:
+    """Return ``(bank_slug, intent_slug)`` for every transactional page."""
+    out: List[Tuple[str, str]] = []
+    for intent_slug in TRANSACTIONAL_INTENTS:
+        for bank_key in BANK_PROFILES:
+            out.append((slug_for_key(bank_key), intent_slug))
+    return out
+
+
+def parse_transactional_path(bank_slug: str, intent_slug: str) -> Optional[Tuple[str, dict]]:
+    """Resolve ``(bank_slug, intent_slug)`` to ``(bank_key, intent_spec)``.
+
+    Returns ``None`` on either unknown bank or unknown intent — both
+    paths the route layer needs to map to a 404.
+    """
+    bank_key = key_for_slug(bank_slug)
+    intent = TRANSACTIONAL_INTENTS.get(intent_slug)
+    if bank_key is None or intent is None:
+        return None
+    return (bank_key, intent)
+
+
+# ── Transactional FAQ + body ────────────────────────────────────────
+
+def _format_money_eur(amount_eur: float) -> str:
+    return f"EUR {amount_eur:,.0f}"
+
+
+def _verdict_phrase(min_spread_bp: float, cohort_p25: float, cohort_p50: float, cohort_p75: float) -> str:
+    """Position the bank's floor against the cohort, for body copy."""
+    if min_spread_bp <= cohort_p25:
+        return "sits in the bottom quartile of the cohort — {bank} is among the tightest-pricing lenders on this deal"
+    if min_spread_bp <= cohort_p50:
+        return "is below the median — {bank} prices tighter than half the cohort"
+    if min_spread_bp <= cohort_p75:
+        return "is above the median — {bank} prices wider than half the cohort, but not punitive"
+    return "sits in the top quartile — {bank} needs more spread than three quarters of the cohort to clear its hurdle"
+
+
+def _build_transactional_faqs(
+    profile: BankProfile,
+    intent: dict,
+    metrics: dict,
+    cohort_p25: float,
+    cohort_p50: float,
+    cohort_p75: float,
+    cohort_n: int,
+) -> List[Tuple[str, str]]:
+    bank = profile.name
+    is_rcf = intent["slug"] == "renegotiate-rcf"
+
+    if is_rcf:
+        return [
+            (
+                f"Can I actually renegotiate the spread on a {bank} RCF mid-life?",
+                (
+                    f"Yes. Most {bank} revolvers include a market-flex clause or an annual "
+                    "repricing trigger, and even when they do not, the bank will engage if "
+                    "your ancillary business has grown or your credit rating has improved. "
+                    "The leverage point in the conversation is showing that the bank's own "
+                    "RAROC math clears at a tighter spread + commitment fee combination."
+                ),
+            ),
+            (
+                f"How does OpenRAROC know what {bank} needs to charge?",
+                (
+                    f"Every input — cost-to-income {profile.cost_to_income*100:.1f}%, effective "
+                    f"tax rate {profile.effective_tax_rate*100:.1f}%, average corporate PD "
+                    f"{profile.corporate_avg_pd*100:.2f}%, LGD bands, IRB approach — comes "
+                    f"directly from {bank}'s most recent public Pillar 3 disclosures. The "
+                    "engine then runs the same math the bank's own pricing committee runs."
+                ),
+            ),
+            (
+                "What's a realistic ask: 10bp? 25bp? more?",
+                (
+                    f"Depends on where your facility currently sits against the P25 / P50 / "
+                    f"P75 of the {cohort_n}-bank cohort on the benchmark RCF below "
+                    f"(P25 ≈ {cohort_p25:.0f}bp, P50 ≈ {cohort_p50:.0f}bp, P75 ≈ "
+                    f"{cohort_p75:.0f}bp). If your spread is above the P50, asking for "
+                    "15-25bp typically lands; above P75, 30-50bp is in scope. Credenda's "
+                    "Term-Sheet Doctor reports your exact band."
+                ),
+            ),
+            (
+                "Does the commitment fee count as 'spread'?",
+                (
+                    "Economically yes. At typical RCF utilisation (45-60%), the commitment "
+                    "fee delivers roughly half of total revenue per euro of commitment. "
+                    "Negotiating drawn margin without simultaneously negotiating the "
+                    "commitment fee usually leaves the larger lever untouched."
+                ),
+            ),
+            (
+                f"Where does {bank}'s data on this page come from?",
+                (
+                    f"{profile.source} Source confidence: {profile.confidence}."
+                ),
+            ),
+        ]
+    return [
+        (
+            f"How does {bank}'s 'fair-price floor' get derived?",
+            (
+                f"{bank} discloses cost-to-income ({profile.cost_to_income*100:.1f}%), "
+                f"effective tax rate ({profile.effective_tax_rate*100:.1f}%), corporate PD "
+                f"({profile.corporate_avg_pd*100:.2f}%) and LGD bands in its Pillar 3 "
+                "filings. OpenRAROC plugs those into the standard RAROC equation against "
+                "a benchmark BBB+ term loan and solves for the spread that clears a 12% "
+                "hurdle. That is the bank's fair-price floor on this exact deal."
+            ),
+        ),
+        (
+            "What does 'fairly priced' mean in practice?",
+            (
+                f"A {bank} term loan is fairly priced if its spread sits between P25 and "
+                f"P50 of the cohort — competitive with the market but still profitable for "
+                f"the bank. Below P25 you're getting a friend price (and probably owe the "
+                f"bank elsewhere). Above P75, the bank is over-earning on this facility "
+                "and there is room to push back."
+            ),
+        ),
+        (
+            f"My deal isn't BBB+ / isn't EUR 25M / isn't 5-year — does this still apply?",
+            (
+                f"The benchmark deal is stylised so the cohort comparison stays apples-to-"
+                f"apples across {cohort_n} banks. For your actual deal — different rating, "
+                "size, tenor, collateral — Credenda's Term-Sheet Doctor re-runs the same "
+                f"engine against {bank} but on your real terms, and tells you exactly where "
+                "you sit."
+            ),
+        ),
+        (
+            "How do I bring this up with my relationship banker?",
+            (
+                f"Lead with the public data: \"On {bank}'s own Pillar 3 numbers, a BBB+ EUR "
+                "25M 5-year term loan clears the RAROC hurdle at "
+                f"{metrics['min_spread_bp']:.0f}bp. Where does my deal land versus that?\" "
+                "It's a conversation about the bank's own internal math, not about market "
+                "gossip or comparable quotes."
+            ),
+        ),
+        (
+            f"Where does {bank}'s data on this page come from?",
+            (
+                f"{profile.source} Source confidence: {profile.confidence}."
+            ),
+        ),
+    ]
+
+
+# ── Renderer ────────────────────────────────────────────────────────
+
+def render_transactional_page(bank_key: str, intent_slug: str) -> Optional[str]:
+    profile = BANK_PROFILES.get(bank_key)
+    intent = TRANSACTIONAL_INTENTS.get(intent_slug)
+    if not profile or not intent:
+        return None
+
+    bank_slug = slug_for_key(bank_key)
+    canonical = f"https://openraroc.com/banks/{bank_slug}/{intent_slug}"
+    bank = profile.name
+    sample_deal_key = intent["sample_deal_key"]
+    metrics = _calc_for_sample(profile, sample_deal_key)
+    p25, p50, p75, n_cohort = _cohort_for_deal(sample_deal_key)
+
+    # Where this bank sits in the cohort
+    floor_bp = metrics["min_spread_bp"]
+    if p50 > 0:
+        delta_vs_p50 = floor_bp - p50
+    else:
+        delta_vs_p50 = 0
+    verdict_phrase = _verdict_phrase(floor_bp, p25, p50, p75).format(bank=bank)
+
+    # SEO + JSON-LD blocks
+    title = intent["title"].format(bank=bank)
+    description = intent["meta_description"].format(bank=bank)
+    intro_para = intent["intro_para"].format(bank=bank)
+    mechanic_para = intent["mechanic_para"].format(bank=bank)
+    cta_headline = intent["cta_headline"].format(bank=bank)
+    cta_body = intent["cta_body"].format(bank=bank)
+    h1 = intent["h1"].format(bank=bank)
+    subtitle = intent["subtitle"].format(bank=bank)
+    intent_kicker = intent["intent_kicker"]
+
+    howto_steps = [(name, text.format(bank=bank)) for name, text in intent["howto_steps"]]
+
+    faqs = _build_transactional_faqs(profile, intent, metrics, p25, p50, p75, n_cohort)
+    faq_block = faq_html(faqs, heading=f"FAQ — {h1.lower()}")
+    faq_ld = faq_jsonld(faqs)
+    breadcrumb_ld = breadcrumb_jsonld([
+        ("Home", "https://openraroc.com/"),
+        ("Banks", "https://openraroc.com/banks"),
+        (bank, f"https://openraroc.com/banks/{bank_slug}"),
+        (intent_kicker, canonical),
+    ])
+    article_ld = article_jsonld(headline=h1, description=description, url=canonical)
+    howto_ld = howto_jsonld(
+        name=h1,
+        description=cta_body,
+        steps=howto_steps,
+    )
+
+    # Conversion CTAs to credenda.io. The first-touch attribution lands
+    # on the Credenda landing page; the deep-link CTA goes to the
+    # Term-Sheet Doctor directly so the visitor can convert in one click.
+    credenda_landing = credenda_cta_url(bank_slug, intent_slug, path="/")
+    credenda_doctor = credenda_cta_url(
+        bank_slug, intent_slug, path="/modules/term-sheet-doctor"
+    )
+
+    # Sample-deal verdict explainer
+    raroc_pct = metrics["raroc"] * 100
+    if raroc_pct >= 12:
+        verdict = "above the bank's 12% hurdle — the deal would be profitable as quoted"
+    elif raroc_pct >= 8:
+        verdict = "below the bank's 12% hurdle — the bank would likely push for tighter terms"
+    else:
+        verdict = "well below the bank's 12% hurdle — the bank would either reprice or decline this deal at the stated terms"
+
+    # Cohort positioning line
+    cohort_position = (
+        f"On this benchmark deal, {bank}'s required spread of {floor_bp:.0f}bp "
+        f"{verdict_phrase}."
+    )
+
+    # Cross-link strip to related pages
+    other_intent_slug = next(
+        (s for s in TRANSACTIONAL_INTENTS if s != intent_slug), None
+    )
+    other_link_html = ""
+    if other_intent_slug:
+        other_intent = TRANSACTIONAL_INTENTS[other_intent_slug]
+        other_h1 = other_intent["h1"].format(bank=bank)
+        other_link_html = (
+            f'<p style="margin-top:14px;"><a href="/banks/{bank_slug}/{other_intent_slug}">'
+            f'{other_h1}</a> &middot; '
+            f'<a href="/banks/{bank_slug}">Full {bank} RAROC profile</a></p>'
+        )
+
+    page = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{title}</title>
+<meta name="description" content="{description}">
+<link rel="canonical" href="{canonical}">
+<meta property="og:type" content="article">
+<meta property="og:url" content="{canonical}">
+<meta property="og:title" content="{h1}">
+<meta property="og:description" content="{description}">
+<meta property="og:site_name" content="OpenRAROC">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{h1}">
+<meta name="twitter:description" content="{description}">
+{article_ld}
+{howto_ld}
+{faq_ld}
+{breadcrumb_ld}
+<meta property="article:modified_time" content="{data_last_updated_iso()}">
+<style>{PAGE_CSS}{FAQ_CSS}</style>
+</head>
+<body>
+{nav_html()}
+<div class="container">
+  <div class="crumbs">
+    <a href="/">Home</a> /
+    <a href="/banks">Banks</a> /
+    <a href="/banks/{bank_slug}">{bank}</a> /
+    {intent_kicker}
+  </div>
+
+  <div style="display:inline-block;background:rgba(59,130,246,0.12);color:var(--accent);
+              padding:4px 12px;border-radius:8px;font-size:12px;font-weight:600;
+              text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">
+    {intent_kicker}
+  </div>
+  <h1>{h1}</h1>
+  <p class="subtitle">{subtitle}</p>
+  {last_updated_html()}
+
+  <p>{intro_para}</p>
+
+  <div class="callout">
+    <strong>Benchmark deal used on this page:</strong>
+    <p style="margin:6px 0 0;">{intent['deal_caption']}</p>
+  </div>
+
+  <h2>{bank}'s fair-price floor on this deal</h2>
+  <p>
+    Running this benchmark against {bank}'s own Pillar 3 inputs — cost-to-income
+    {profile.cost_to_income*100:.1f}%, effective tax rate {profile.effective_tax_rate*100:.1f}%,
+    average corporate PD {profile.corporate_avg_pd*100:.2f}%, LGD bands at
+    {profile.avg_lgd_unsecured*100:.0f}% unsecured / {profile.avg_lgd_secured*100:.0f}% secured —
+    the engine returns a minimum spread of <strong>{floor_bp:.0f}bp</strong> to clear a 12%
+    RAROC hurdle. At the deal's stated spread, the RAROC comes out at
+    <strong>{raroc_pct:.2f}%</strong> — {verdict}.
+  </p>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Fair-price floor</div>
+      <div class="stat-value">{floor_bp:.0f}bp</div>
+      <div class="stat-sub">Min spread to clear 12% RAROC</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Sample RAROC</div>
+      <div class="stat-value">{raroc_pct:.2f}%</div>
+      <div class="stat-sub">At the deal's stated spread</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">vs cohort P50</div>
+      <div class="stat-value">{('+' if delta_vs_p50 >= 0 else '')}{delta_vs_p50:.0f}bp</div>
+      <div class="stat-sub">{n_cohort}-bank cohort median {p50:.0f}bp</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">IRB approach</div>
+      <div class="stat-value" style="font-size:18px;">{profile.irb_approach}</div>
+      <div class="stat-sub">Drives capital intensity</div>
+    </div>
+  </div>
+
+  <h2>Why this number matters in a renegotiation</h2>
+  <p>{mechanic_para}</p>
+
+  <h2>{bank} versus the cohort</h2>
+  <p>{cohort_position}</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Cohort statistic</th>
+        <th class="num">Min spread (bp)</th>
+        <th>Interpretation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>P25 (cheapest quartile)</td><td class="num">{p25:.0f}bp</td><td>Tightest-pricing banks on this deal</td></tr>
+      <tr><td>P50 (cohort median)</td><td class="num">{p50:.0f}bp</td><td>The middle of the market</td></tr>
+      <tr><td>P75 (most-expensive quartile)</td><td class="num">{p75:.0f}bp</td><td>Wider than three quarters of peers</td></tr>
+      <tr class="highlight"><td><strong>{bank}</strong></td><td class="num"><strong>{floor_bp:.0f}bp</strong></td><td>{verdict_phrase}</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Sample RAROC breakdown</h2>
+  <table>
+    <thead><tr><th>Component</th><th class="num">Value</th></tr></thead>
+    <tbody>
+      <tr><td>Annual revenue (spread + fees)</td><td class="num">{_format_money_eur(metrics['revenue'])}</td></tr>
+      <tr><td>Operating cost</td><td class="num">{_format_money_eur(metrics['cost'])}</td></tr>
+      <tr><td>Expected loss (PD x LGD x EAD)</td><td class="num">{_format_money_eur(metrics['expected_loss'])}</td></tr>
+      <tr><td>Capital required (FPE)</td><td class="num">{_format_money_eur(metrics['fpe'])}</td></tr>
+      <tr><td><strong>RAROC (after tax)</strong></td><td class="num"><strong>{raroc_pct:.2f}%</strong></td></tr>
+      <tr><td>Min spread to hit 12% RAROC</td><td class="num">{floor_bp:.0f}bp</td></tr>
+    </tbody>
+  </table>
+
+  <div class="cta">
+    <h3>{cta_headline}</h3>
+    <p>{cta_body}</p>
+    <a href="{credenda_doctor}" class="btn btn-primary" rel="noopener" data-cta="credenda-doctor">
+      {intent['cta_button']}
+    </a>
+    <p style="margin-top:12px;font-size:12px;color:var(--text3);">
+      Powered by Credenda &middot;
+      <a href="{credenda_landing}" rel="noopener" data-cta="credenda-landing">credenda.io</a>
+    </p>
+  </div>
+
+  <h2>How to act on this in four steps</h2>
+  <ol style="padding-left:20px;color:var(--text2);line-height:1.7;">
+    {''.join(f'<li><strong>{name}.</strong> {text}</li>' for name, text in howto_steps)}
+  </ol>
+
+  {other_link_html}
+
+  {faq_block}
+
+  <h2>Data source</h2>
+  <div class="source">
+    {profile.source}
+    {('<br><br>' + profile.notes) if profile.notes else ''}
+    <br><br>
+    <em>Confidence: {profile.confidence}</em> &middot;
+    <a href="/methodology">Read the full RAROC methodology</a>
+  </div>
+
+  <div class="cta">
+    <h3>Run the assessment on your own term sheet</h3>
+    <p>Credenda's Term-Sheet Doctor scores any BBB+/-A/AA term sheet against {bank}'s public RAROC profile in under two minutes.</p>
+    <a href="{credenda_doctor}" class="btn btn-primary" rel="noopener" data-cta="credenda-doctor-bottom">
+      Open Term-Sheet Doctor
+    </a>
+  </div>
+</div>
+{footer_html()}
+</body>
+</html>"""
+    return page

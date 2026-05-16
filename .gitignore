@@ -33,8 +33,10 @@ results.csv
 # Old HSQLDB files
 repository/rarocdb.*
 
-# Excel data files
+# Excel data files (user workbooks); fixture reference workbooks are intentionally tracked
 *.xlsx
+!tests/fixtures/reference_excel/*.xlsx
 
-# Downloaded PDFs (working files)
+# Downloaded PDFs (working files); generated GTM artefacts are tracked
 *.pdf
+!docs/gtm/enterprise-onepager.pdf

@@ -166,6 +166,12 @@ async def sitemap_xml():
     ]
     for slug in bank_pages.all_bank_slugs():
         urls.append((f"https://openraroc.com/banks/{slug}", "monthly", "0.7"))
+    for bank_slug, intent_slug in bank_pages.all_transactional_pages():
+        urls.append((
+            f"https://openraroc.com/banks/{bank_slug}/{intent_slug}",
+            "monthly",
+            "0.75",
+        ))
     for slug in country_pages.all_country_slugs():
         urls.append((f"https://openraroc.com/countries/{slug}", "monthly", "0.7"))
     for slug in compare_pages.all_compare_slugs():
@@ -185,6 +191,19 @@ async def sitemap_xml():
 async def banks_index():
     from . import bank_pages
     return bank_pages.render_banks_index()
+
+
+@app.get("/banks/{bank_slug}/{intent_slug}", response_class=HTMLResponse)
+async def bank_transactional_page(bank_slug: str, intent_slug: str):
+    from . import bank_pages
+    resolved = bank_pages.parse_transactional_path(bank_slug, intent_slug)
+    if resolved is None:
+        raise HTTPException(404, f"Unknown transactional page: {bank_slug}/{intent_slug}")
+    bank_key, _intent = resolved
+    html = bank_pages.render_transactional_page(bank_key, intent_slug)
+    if html is None:
+        raise HTTPException(404, f"Unknown transactional page: {bank_slug}/{intent_slug}")
+    return html
 
 
 @app.get("/banks/{slug}", response_class=HTMLResponse)

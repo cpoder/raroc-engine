@@ -1,0 +1,249 @@
+fixture_id: period_rcf_5y
+description: Confirmed 5y RCF, 50M commitment, cleandown to 20M drawn after year 3. Investment-grade mid-cap borrower (Baa2),
+  unsecured. 150bp spread, 25bp commit fee on undrawn, 200k upfront fee in year 1.
+version: '0.1'
+generated_by: tests/fixtures/build_fixtures.py
+engine_config:
+  regime: basel3
+  risk_free_rate: 0.0325
+  bank_tax_rate: 0.25
+  funding_cost_bp: 0.0
+  default_cost_income_ratio: 0.4
+  output_floor_pct: 0.55
+  pd_floor: 0.0005
+  lgd_floor_unsecured: 0.25
+  lgd_floor_secured: 0.1
+  default_collateral_type: receivables
+deal:
+  product_type: mlt_credit
+  currency: EUR
+  rating: Baa2
+  global_grr: 0.0
+  confirmed: true
+  spread: 0.015
+  commitment_fee: 0.0025
+discount:
+  kind: scalar
+  rate: 0.0325
+  day_count: Act/365F
+schedule:
+  type: annual
+  day_count: Act/365F
+  periods:
+  - index: 1
+    start: '2026-06-01'
+    end: '2027-06-01'
+    dt_years: 1.0
+    commitment: 50000000.0
+    avg_drawn: 35000000.0
+    remaining_maturity_years: 5.0
+    upfront_fee: 200000.0
+    flat_fee: 0.0
+    participation_fee: 0.0
+    floating_index: null
+    fixing_rate: null
+  - index: 2
+    start: '2027-06-01'
+    end: '2028-06-01'
+    dt_years: 1.0
+    commitment: 50000000.0
+    avg_drawn: 35000000.0
+    remaining_maturity_years: 4.0
+    upfront_fee: 0.0
+    flat_fee: 0.0
+    participation_fee: 0.0
+    floating_index: null
+    fixing_rate: null
+  - index: 3
+    start: '2028-06-01'
+    end: '2029-06-01'
+    dt_years: 1.0
+    commitment: 50000000.0
+    avg_drawn: 35000000.0
+    remaining_maturity_years: 3.0
+    upfront_fee: 0.0
+    flat_fee: 0.0
+    participation_fee: 0.0
+    floating_index: null
+    fixing_rate: null
+  - index: 4
+    start: '2029-06-01'
+    end: '2030-06-01'
+    dt_years: 1.0
+    commitment: 50000000.0
+    avg_drawn: 20000000.0
+    remaining_maturity_years: 2.0
+    upfront_fee: 0.0
+    flat_fee: 0.0
+    participation_fee: 0.0
+    floating_index: null
+    fixing_rate: null
+  - index: 5
+    start: '2030-06-01'
+    end: '2031-06-01'
+    dt_years: 1.0
+    commitment: 50000000.0
+    avg_drawn: 20000000.0
+    remaining_maturity_years: 1.0
+    upfront_fee: 0.0
+    flat_fee: 0.0
+    participation_fee: 0.0
+    floating_index: null
+    fixing_rate: null
+expected:
+  per_period:
+  - index: 1
+    revenue: 762500.0
+    cost: 305000.0
+    funding_cost: 0.0
+    exposure: 46250000.0
+    pd: 0.0016
+    pd_basel2: 0.0016
+    lgd: 1.0
+    correlation_R: 0.2307739616
+    maturity_adj_b: 0.2220106257
+    z: -1.6684554745
+    K_irb: 0.1072753177
+    sa_rw: 0.75
+    K_floor: 0.033
+    K: 0.1072753177
+    fpe: 4961483.44187438
+    el: 74000.0
+    gross_margin: 457500.0
+    fpe_return: 161248.21186092
+    net_margin: 544748.21186092
+    raroc: 0.0823465731
+    raroc_bp: 823.4657
+    t_end_years: 1.0
+    df: 0.9685230024
+    revenue_pv: 738498.78934625
+    net_margin_pv: 527601.17371517
+    drawn_pv: 33898305.08474576
+  - index: 2
+    revenue: 562500.0
+    cost: 225000.0
+    funding_cost: 0.0
+    exposure: 46250000.0
+    pd: 0.0016
+    pd_basel2: 0.0016
+    lgd: 1.0
+    correlation_R: 0.2307739616
+    maturity_adj_b: 0.2220106257
+    z: -1.6684554745
+    K_irb: 0.0919596562
+    sa_rw: 0.75
+    K_floor: 0.033
+    K: 0.0919596562
+    fpe: 4253134.09996493
+    el: 74000.0
+    gross_margin: 337500.0
+    fpe_return: 138226.85824886
+    net_margin: 401726.85824886
+    raroc: 0.0708407345
+    raroc_bp: 708.4073
+    t_end_years: 2.0
+    df: 0.9380368062
+    revenue_pv: 527645.70349829
+    net_margin_pv: 376834.57908423
+    drawn_pv: 32831288.21767144
+  - index: 3
+    revenue: 562500.0
+    cost: 225000.0
+    funding_cost: 0.0
+    exposure: 46250000.0
+    pd: 0.0016
+    pd_basel2: 0.0016
+    lgd: 1.0
+    correlation_R: 0.2307739616
+    maturity_adj_b: 0.2220106257
+    z: -1.6684554745
+    K_irb: 0.0766439948
+    sa_rw: 0.75
+    K_floor: 0.033
+    K: 0.0766439948
+    fpe: 3544784.75805548
+    el: 74000.0
+    gross_margin: 337500.0
+    fpe_return: 115205.5046368
+    net_margin: 378705.5046368
+    raroc: 0.0801259168
+    raroc_bp: 801.2592
+    t_end_years: 3.0
+    df: 0.9085102239
+    revenue_pv: 511037.00096687
+    net_margin_pv: 344057.82282531
+    drawn_pv: 31797857.83793844
+  - index: 4
+    revenue: 375000.0
+    cost: 150000.0
+    funding_cost: 0.0
+    exposure: 42500000.0
+    pd: 0.0016
+    pd_basel2: 0.0016
+    lgd: 1.0
+    correlation_R: 0.2307739616
+    maturity_adj_b: 0.2220106257
+    z: -1.6684554745
+    K_irb: 0.0613283333
+    sa_rw: 0.75
+    K_floor: 0.033
+    K: 0.0613283333
+    fpe: 2606454.16618824
+    el: 68000.0
+    gross_margin: 225000.0
+    fpe_return: 84709.76040112
+    net_margin: 241709.76040112
+    raroc: 0.0695513171
+    raroc_bp: 695.5132
+    t_end_years: 4.0
+    df: 0.8799130498
+    revenue_pv: 329967.39368321
+    net_margin_pv: 212683.57244627
+    drawn_pv: 17598260.99643774
+  - index: 5
+    revenue: 375000.0
+    cost: 150000.0
+    funding_cost: 0.0
+    exposure: 42500000.0
+    pd: 0.0016
+    pd_basel2: 0.0016
+    lgd: 1.0
+    correlation_R: 0.2307739616
+    maturity_adj_b: 0.2220106257
+    z: -1.6684554745
+    K_irb: 0.0460126719
+    sa_rw: 0.75
+    K_floor: 0.033
+    K: 0.0460126719
+    fpe: 1955538.55470388
+    el: 68000.0
+    gross_margin: 225000.0
+    fpe_return: 63555.00302788
+    net_margin: 220555.00302788
+    raroc: 0.0845885917
+    raroc_bp: 845.8859
+    t_end_years: 5.0
+    df: 0.8522160289
+    revenue_pv: 319581.01083119
+    net_margin_pv: 187960.50883074
+    drawn_pv: 17044320.57766367
+  aggregates:
+    npv_borrower_cost: 2426729.89832581
+    npv_bank_net_margin: 1649137.65690171
+    npv_drawn_balance: 133170032.71445706
+    effective_spread: 0.01822279
+    effective_spread_bp: 182.22792687
+    fpe_weighted_raroc: 0.07739469
+    total_revenue_undisc: 2637500.0
+    total_el_undisc: 358000.0
+    avg_exposure: 44750000.0
+  discount_meta:
+    curve_status: scalar
+    rate_used: 0.0325
+    day_count: Act/365F
+tolerances:
+  per_period_raroc_bp_abs: 0.5
+  per_period_fpe_rel: 0.005
+  npv_rel: 0.001
+  effective_spread_bp_abs: 0.5
+  single_period_parity_abs: 1.0e-12
